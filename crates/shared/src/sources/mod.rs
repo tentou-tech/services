@@ -70,6 +70,10 @@ pub fn defaults_for_network(chain: &Chain) -> Vec<BaselineSource> {
         ],
         Chain::Lens => vec![BaselineSource::UniswapV3],
         Chain::Sepolia => vec![BaselineSource::TestnetUniswapV2],
+        Chain::HyperEvmTestnet => vec![
+            BaselineSource::UniswapV2, // HyperSwap V2
+            BaselineSource::UniswapV3, // HyperSwap V3
+        ],
         Chain::Hardhat => panic!("unsupported baseline sources for Hardhat"),
     }
 }

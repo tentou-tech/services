@@ -9,6 +9,7 @@ pub mod networks {
     pub const BNB: u64 = 56;
     pub const OPTIMISM: u64 = 10;
     pub const LENS: u64 = 232;
+    pub const HYPER_EVM_TESTNET: u64 = 998;
 }
 
 crate::bindings!(
