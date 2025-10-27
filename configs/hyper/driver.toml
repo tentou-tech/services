@@ -1,0 +1,23 @@
+tx-gas-limit = "45000000"
+
+[[solver]]
+name = "baseline" # Arbitrary name given to this solver, must be unique
+endpoint = "http://baseline"
+absolute-slippage = "40000000000000000" # Denominated in wei, optional
+relative-slippage = "0.1" # Percentage in the [0, 1] range
+account = "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6" # Known test private key
+
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+
+[liquidity]
+base-tokens = [
+    "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # WETH
+    "0xd9CBEC81df392A88AEff575E962d149d57F4d6bc", # USDC
+]
+
+[[liquidity.uniswap-v2]] # Uniswap V2 configuration
+preset = "uniswap-v2"

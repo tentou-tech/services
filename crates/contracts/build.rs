@@ -125,12 +125,11 @@ fn main() {
                     deployment_information: Some(DeploymentInformation::BlockNumber(2612937)),
                 },
             )
-            // TODO: Update with actual GPv2AllowListAuthentication contract address after deployment
             .add_network(
                 HYPER_EVM_TESTNET,
                 Network {
-                    address: addr("0x0000000000000000000000000000000000000000"),
-                    deployment_information: None,
+                    address: addr("0xF447565981Ad390a44de9764032F2E3991F12661"),
+                    deployment_information: Some(DeploymentInformation::BlockNumber(35687405)),
                 },
             )
     });
@@ -224,6 +223,13 @@ fn main() {
                     deployment_information: Some(DeploymentInformation::BlockNumber(2621745)),
                 },
             )
+            .add_network(
+                HYPER_EVM_TESTNET,
+                Network {
+                    address: addr("0xDc746A7FF2DaAf182DA82560318F6c1b36d067b1"),
+                    deployment_information: Some(DeploymentInformation::BlockNumber(35687405)),
+                },
+            )
     });
     // EIP-1271 contract - SignatureValidator
     generate_contract("ERC1271SignatureValidator");
@@ -268,6 +274,7 @@ fn main() {
             .add_network_str(OPTIMISM, "0x4200000000000000000000000000000000000006")
             .add_network_str(POLYGON, "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
             .add_network_str(LENS, "0x6bDc36E20D267Ff0dd6097799f82e78907105e2F")
+            .add_network_str(HYPER_EVM_TESTNET, "0xADcb2f358Eae6492F61A5F87eb8893d09391d160")
     });
     generate_contract_with_config("IUniswapV3Factory", |builder| {
         // <https://github.com/Uniswap/v3-periphery/blob/697c2474757ea89fec12a4e6db16a574fe259610/deploys.md>
@@ -357,8 +364,7 @@ fn main() {
             .add_network_str(LENS, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
             .add_network_str(GNOSIS, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
             .add_network_str(SEPOLIA, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
-            // TODO: Update with actual Balances helper contract address after deployment
-            .add_network_str(HYPER_EVM_TESTNET, "0x0000000000000000000000000000000000000000")
+            .add_network_str(HYPER_EVM_TESTNET, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
     });
 
     // Contract for Uniswap's Permit2 contract.
@@ -434,6 +440,13 @@ fn main() {
                     address: addr("0x000000000022D473030F116dDEE9F6B43aC78BA3"),
                     // <https://polygonscan.com/tx/0xe2a4d996de0d6a23108f701b37acba6c47ee34448bb51fec5c23f542a6f3ccc8>
                     deployment_information: Some(DeploymentInformation::BlockNumber(35701901)),
+                },
+            )
+            .add_network(
+                HYPER_EVM_TESTNET,
+                Network {
+                    address: addr("0x000000000022D473030F116dDEE9F6B43aC78BA3"),
+                    deployment_information: Some(DeploymentInformation::BlockNumber(35687405)),
                 },
             )
         // Not available on Lens

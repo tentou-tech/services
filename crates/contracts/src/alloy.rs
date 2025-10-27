@@ -435,6 +435,7 @@ crate::bindings!(
         // <https://polygonscan.com/tx/0x712ac56155a301fca4b7a761e232233f41a104865a74b1a59293835da355292a>
         POLYGON => address!("0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C"),
         // Not available on Lens
+        HYPER_EVM_TESTNET => address!("0xA028411927E2015A363014881a4404C636218fb1"),
     }
 );
 crate::bindings!(
@@ -460,6 +461,7 @@ crate::bindings!(
         // <https://polygonscan.com/tx/0x66186e0cacd2f6b3ad2eae586bd331daafd0572eb80bf71be694181858198025>
         POLYGON => address!("0xedf6066a2b290C185783862C7F4776A2C8077AD1"),
         // Not available on Lens
+        HYPER_EVM_TESTNET => address!("0x85aA63EB2ab9BaAA74eAd7e7f82A571d74901853"),
     }
 );
 crate::bindings!(IUniswapLikeRouter);
@@ -478,6 +480,7 @@ crate::bindings!(
         POLYGON => address!("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
         LENS => address!("0x1eEA2B790Dc527c5a4cd3d4f3ae8A2DDB65B2af1"),
         // Not listed on Gnosis and Sepolia chains
+        HYPER_EVM_TESTNET => address!("0x7FEd8993828A61A5985F384Cee8bDD42177Aa263"),
     }
 );
 crate::bindings!(
@@ -493,6 +496,7 @@ crate::bindings!(
         BNB => address!("0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2"),
         LENS => address!("0x6ddD32cd941041D8b61df213B9f515A7D288Dc13"),
         // Not available on Gnosis Chain
+        HYPER_EVM_TESTNET => address!("0x51c5958FFb3e326F8d7AA945948159f1FF27e14A"),
     }
 );
 crate::bindings!(
@@ -510,6 +514,7 @@ crate::bindings!(
         // not official
         LENS => address!( "0xc3A5b857Ba82a2586A45a8B59ECc3AA50Bc3D0e3"),
         // Not available on Gnosis Chain
+        HYPER_EVM_TESTNET => address!("0x22B0768972bB7f1F5ea7a8740BB8f94b32483826"),
     }
 );
 
@@ -528,6 +533,7 @@ crate::bindings!(
         OPTIMISM  => address!("0x60Bf78233f48eC42eE3F101b9a05eC7878728006"),
         POLYGON  => address!("0x60Bf78233f48eC42eE3F101b9a05eC7878728006"),
         LENS  => address!("0x60Bf78233f48eC42eE3F101b9a05eC7878728006"),
+        HYPER_EVM_TESTNET  => address!("0xe7287fbeb5e11cA97Dc32422C572847C94413c4f"),
     }
 );
 
@@ -626,6 +632,7 @@ crate::bindings!(
         OPTIMISM => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 38854427),
         // <https://polygonscan.com/tx/0xe2a4d996de0d6a23108f701b37acba6c47ee34448bb51fec5c23f542a6f3ccc8>
         POLYGON => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 35701901),
+        HYPER_EVM_TESTNET => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 35687405),
     }
 );
 
@@ -654,6 +661,7 @@ pub mod support {
             LENS => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
             GNOSIS => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
             SEPOLIA => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
+            HYPER_EVM_TESTNET => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
         }
     );
     // Support contracts used for various order simulations.
@@ -670,6 +678,7 @@ pub mod support {
             LENS => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
             GNOSIS => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
             SEPOLIA => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
+            HYPER_EVM_TESTNET => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
         }
     );
 }
