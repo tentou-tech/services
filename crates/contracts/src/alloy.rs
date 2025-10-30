@@ -496,7 +496,7 @@ crate::bindings!(
         BNB => address!("0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2"),
         LENS => address!("0x6ddD32cd941041D8b61df213B9f515A7D288Dc13"),
         // Not available on Gnosis Chain
-        HYPER_EVM_TESTNET => address!("0x51c5958FFb3e326F8d7AA945948159f1FF27e14A"),
+        HYPER_EVM_TESTNET => address!("0xD81F56576B1FF2f3Ef18e9Cc71Adaa42516fD990"),
     }
 );
 crate::bindings!(

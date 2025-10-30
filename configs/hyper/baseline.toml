@@ -1,7 +1,7 @@
 chain-id = "998" # Hyper EVM Testnet
 base-tokens = [
     "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # WETH
-    "0xd9CBEC81df392A88AEff575E962d149d57F4d6bc", # USDC
+    "0x24ac48bf01fd6CB1C3836D08b3EdC70a9C4380cA", # USDC
 ]
 max-hops = 2
 max-partial-attempts = 5

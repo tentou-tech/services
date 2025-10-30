@@ -138,6 +138,14 @@ where
 {
     let router =
         IUniswapLikeRouter::Instance::new(config.router.0.into_alloy(), eth.web3().alloy.clone());
+
+    // ADD THIS LOGGING
+    tracing::info!(
+        "Initializing Uniswap V2 liquidity collector with router: {:?}, pool_code: {:?}",
+        config.router.0,
+        config.pool_code
+    );
+
     let settlement = eth.contracts().settlement().clone();
     let pool_fetcher = {
         let factory = router.factory().call().await?;
@@ -145,6 +153,11 @@ where
             factory: factory.into_legacy(),
             init_code_digest: config.pool_code.into(),
         };
+
+        tracing::info!(
+            "Uniswap V2 factory address: {:?}",
+            factory
+        );
 
         let pool_fetcher = PoolFetcher::new(
             reader(eth.web3().clone(), pair_provider),
@@ -159,12 +172,20 @@ where
         )?)
     };
 
-    Ok(Box::new(UniswapLikeLiquidity::with_allowances(
+    let liquidity_collector = UniswapLikeLiquidity::with_allowances(
         *router.address(),
         settlement,
         Box::new(NoAllowanceManaging),
         pool_fetcher,
-    )))
+    );
+    
+    // ADD THIS LOGGING
+    tracing::info!(
+        "Uniswap V2 liquidity collector initialized successfully with router: {:?}",
+        *router.address()
+    );
+
+    Ok(Box::new(liquidity_collector))
 }
 
 /// An allowance manager that always reports no allowances.

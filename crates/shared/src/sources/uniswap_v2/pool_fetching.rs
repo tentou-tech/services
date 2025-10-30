@@ -220,6 +220,15 @@ where
     #[instrument(skip_all)]
     async fn fetch(&self, token_pairs: HashSet<TokenPair>, at_block: Block) -> Result<Vec<Pool>> {
         let mut token_pairs: Vec<_> = token_pairs.into_iter().collect();
+        // Log initial pairs being requested
+        tracing::info!(
+            "Fetching pools for {} pairs: {:?}",
+            token_pairs.len(),
+            token_pairs
+                .iter()
+                .map(|p| (p.get().0, p.get().1))
+                .collect::<Vec<_>>()
+        );
         {
             let mut non_existent_pools = self.non_existent_pools.write().unwrap();
             token_pairs.retain(|pair| non_existent_pools.cache_get(pair).is_none());
@@ -230,23 +239,57 @@ where
             .map(|pair| self.pool_reader.read_state(*pair, block))
             .collect::<Vec<_>>();
 
+        tracing::info!(
+            "Reading pool state for {} pairs at block {:?}",
+            futures.len(),
+            block
+        );
+
         let results = future::try_join_all(futures).await?;
 
         let mut new_missing_pairs = vec![];
         let mut pools = vec![];
         for (result, key) in results.into_iter().zip(token_pairs) {
             match result {
-                Some(pool) => pools.push(pool),
-                None => new_missing_pairs.push(key),
+                Some(pool) => {
+                    // Log pool address for each found pool
+                    tracing::info!(
+                        "Found pool: address={:?}, tokens=({:?}, {:?}), reserves=({}, {})",
+                        pool.address,
+                        pool.tokens.get().0,
+                        pool.tokens.get().1,
+                        pool.reserves.0,
+                        pool.reserves.1
+                    );
+                    pools.push(pool);
+                }
+                None => {
+                    tracing::debug!(
+                        "Pool not found for pair: ({:?}, {:?})",
+                        key.get().0,
+                        key.get().1
+                    );
+                    new_missing_pairs.push(key);
+                }
             }
         }
         if !new_missing_pairs.is_empty() {
-            tracing::debug!(token_pairs = ?new_missing_pairs, "stop indexing liquidity");
+            tracing::debug!(
+                "Caching {} non-existent pools: {:?}",
+                new_missing_pairs.len(),
+                new_missing_pairs
+                    .iter()
+                    .map(|p| (p.get().0, p.get().1))
+                    .collect::<Vec<_>>()
+            );
             let mut non_existent_pools = self.non_existent_pools.write().unwrap();
             for pair in new_missing_pairs {
                 non_existent_pools.cache_set(pair, ());
             }
         }
+
+        tracing::info!("Pool fetch complete: found {} pools", pools.len());
+
         Ok(pools)
     }
 }
@@ -272,6 +315,12 @@ impl DefaultPoolReader {
 impl PoolReading for DefaultPoolReader {
     fn read_state(&self, pair: TokenPair, block: BlockId) -> BoxFuture<'_, Result<Option<Pool>>> {
         let pair_address = self.pair_provider.pair_address(&pair);
+
+        tracing::info!(
+           "Pair address: {:?} - pair: {:?}",
+           pair_address,
+           pair
+        );
 
         // Fetch ERC20 token balances of the pools to sanity check with reserves
         let token0 = ERC20::at(&self.web3, pair.get().0);
