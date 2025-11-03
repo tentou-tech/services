@@ -170,6 +170,8 @@ pub fn tx(
         interactions.push(approve(&approval.0))
     }
 
+    tracing::debug!("interactions after encoding allowances = {:#?}", interactions.clone());
+
     // Encode interactions
     let slippage = slippage::Parameters {
         relative: solution.solver().slippage().relative.clone(),
@@ -203,6 +205,13 @@ pub fn tx(
         interactions.push(unwrap(native_unwrap, contracts.weth()));
     }
 
+    tracing::debug!("tokens = {:#?}", tokens.clone());
+    tracing::debug!("clearing_prices = {:#?}", clearing_prices.clone());
+    tracing::debug!("interactions = {:#?}", interactions.clone());
+    tracing::debug!("pre_interactions = {:#?}", pre_interactions.clone());
+    tracing::debug!("post_interactions = {:#?}", post_interactions.clone());
+    tracing::debug!("trades = {:#?}", trades.clone());
+
     let tx = contracts
         .settlement()
         .settle(
@@ -216,6 +225,8 @@ pub fn tx(
             ],
         )
         .into_inner();
+    
+    tracing::debug!("settlement tx = {:#?}", tx);
 
     // Encode the auction id into the calldata
     let mut settle_calldata = tx.data.unwrap().0;
@@ -317,6 +328,7 @@ fn unwrap(amount: eth::TokenAmount, weth: &contracts::WETH9) -> eth::Interaction
     }
 }
 
+#[derive(Debug, Clone)]
 struct Trade {
     sell_token_index: eth::U256,
     buy_token_index: eth::U256,
@@ -338,6 +350,7 @@ struct Price {
     buy_price: eth::U256,
 }
 
+#[derive(Debug, Clone)]
 struct Flags {
     side: order::Side,
     partially_fillable: bool,

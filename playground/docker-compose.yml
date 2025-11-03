@@ -104,6 +104,7 @@ services:
       - TOML_TRACE_ERROR=1
       - ETHFLOW_CONTRACTS
       - ETHFLOW_INDEXING_START
+      - ETHRPC_MAX_BATCH_SIZE=20
     volumes:
       - ../:/src
     depends_on:
@@ -165,20 +166,20 @@ services:
       - "9001:80"  # Solver API & metrics
 
   # CoW Explorer - Direct connection to public RPC
-  explorer:
-    build:
-      context: .
-      dockerfile: Dockerfile.explorer
-      args:
-        - CHAIN=${CHAIN_ID}
-        - ETH_RPC_URL=${ETH_RPC_URL}
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "8001:80"  # CoW Explorer
-    depends_on:
-      - orderbook
+  # explorer:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.explorer
+  #     args:
+  #       - CHAIN=${CHAIN_ID}
+  #       - ETH_RPC_URL=${ETH_RPC_URL}
+  #   restart: always
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "8001:80"  # CoW Explorer
+  #   depends_on:
+  #     - orderbook
 
 volumes:
   postgres_data:

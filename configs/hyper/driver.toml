@@ -21,7 +21,7 @@ base-tokens = [
 ]
 
 [[liquidity.uniswap-v2]] # Custom Uniswap V2 configuration
-router = "0x85aA63EB2ab9BaAA74eAd7e7f82A571d74901853"
+router = "0x6Ca2d020285a991930Db9336685F36530Dd62F90"
 pool-code = "0x89e28f0672d230e32003ce2233112a4f044ab0238d476078999b58524fa386db"
 missing-pool-cache-time = "1h"
 
