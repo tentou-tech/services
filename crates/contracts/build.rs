@@ -21,6 +21,7 @@ const AVALANCHE: &str = "43114";
 const BNB: &str = "56";
 const OPTIMISM: &str = "10";
 const LENS: &str = "232";
+const HYPER_EVM: &str = "999";
 const HYPER_EVM_TESTNET: &str = "998";
 
 fn main() {
@@ -132,6 +133,13 @@ fn main() {
                     deployment_information: Some(DeploymentInformation::BlockNumber(35687405)),
                 },
             )
+            .add_network(
+                HYPER_EVM,
+                Network {
+                    address: addr("0x1e2972A48c4dA05055Ae4630bd203aA363aFcBa0"),
+                    deployment_information: Some(DeploymentInformation::BlockNumber(18380860)),
+                },
+            )
     });
     generate_contract_with_config("GPv2Settlement", |builder| {
         builder
@@ -230,6 +238,13 @@ fn main() {
                     deployment_information: Some(DeploymentInformation::BlockNumber(35687405)),
                 },
             )
+            .add_network(
+                HYPER_EVM,
+                Network {
+                    address: addr("0xf633D8a63E9E26b4A9e77B8aEf4A1bf54C8fC4AD"),
+                    deployment_information: Some(DeploymentInformation::BlockNumber(18380921)),
+                },
+            )
     });
     // EIP-1271 contract - SignatureValidator
     generate_contract("ERC1271SignatureValidator");
@@ -274,7 +289,14 @@ fn main() {
             .add_network_str(OPTIMISM, "0x4200000000000000000000000000000000000006")
             .add_network_str(POLYGON, "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270")
             .add_network_str(LENS, "0x6bDc36E20D267Ff0dd6097799f82e78907105e2F")
-            .add_network_str(HYPER_EVM_TESTNET, "0xADcb2f358Eae6492F61A5F87eb8893d09391d160")
+            .add_network_str(
+                HYPER_EVM_TESTNET,
+                "0xADcb2f358Eae6492F61A5F87eb8893d09391d160",
+            )
+            .add_network_str(
+                HYPER_EVM,
+                "0x5555555555555555555555555555555555555555",
+            )
     });
     generate_contract_with_config("IUniswapV3Factory", |builder| {
         // <https://github.com/Uniswap/v3-periphery/blob/697c2474757ea89fec12a4e6db16a574fe259610/deploys.md>
@@ -364,7 +386,14 @@ fn main() {
             .add_network_str(LENS, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
             .add_network_str(GNOSIS, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
             .add_network_str(SEPOLIA, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
-            .add_network_str(HYPER_EVM_TESTNET, "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b")
+            .add_network_str(
+                HYPER_EVM_TESTNET,
+                "0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b",
+            )
+            .add_network_str(
+                HYPER_EVM,
+                "0x3e8c6de9510e7ecad902d005de3ab52f35cf4f1b",
+            )
     });
 
     // Contract for Uniswap's Permit2 contract.
@@ -447,6 +476,13 @@ fn main() {
                 Network {
                     address: addr("0x000000000022D473030F116dDEE9F6B43aC78BA3"),
                     deployment_information: Some(DeploymentInformation::BlockNumber(35687405)),
+                },
+            )
+            .add_network(
+                HYPER_EVM,
+                Network {
+                    address: addr("0x000000000022D473030F116dDEE9F6B43aC78BA3"),
+                    deployment_information: Some(DeploymentInformation::BlockNumber(18380921)),
                 },
             )
         // Not available on Lens
