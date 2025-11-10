@@ -12,6 +12,7 @@ use {
         util::conv::{rational_to_big_decimal, u256::U256Ext},
     },
     app_data::AppDataHash,
+    ethcontract::H160,
     ethrpc::alloy::conversions::IntoLegacy,
     model::order::{BuyTokenDestination, SellTokenSource},
     std::collections::HashMap,
@@ -58,6 +59,9 @@ pub fn new(
                     limit_order.order.maker_token.into(),
                     limit_order.order.taker_token.into(),
                 ]
+            }
+            liquidity::Kind::Kyber(data) => {
+                vec![H160::zero().into(), H160::zero().into()]
             }
         })
     {
@@ -307,6 +311,19 @@ pub fn new(
                         },
                     )
                 }
+                liquidity::Kind::Kyber(data) => solvers_dto::auction::Liquidity::LimitOrder(
+                    solvers_dto::auction::ForeignLimitOrder {
+                        id: liquidity.id.0.to_string(),
+                        address: H160::zero(),
+                        gas_estimate: liquidity.gas.into(),
+                        hash: Default::default(),
+                        maker_token: H160::zero(),
+                        taker_token: H160::zero(),
+                        maker_amount: 0.into(),
+                        taker_amount: 0.into(),
+                        taker_token_fee_amount: 0.into(),
+                    },
+                ),
             })
             .collect(),
         tokens,

@@ -7,6 +7,7 @@ use {
     ethrpc::block_stream::CurrentBlockWatcher,
     futures::future,
     model::TokenPair,
+    reqwest::Url,
     shared::{
         baseline_solver::BaseTokens,
         current_block,
@@ -26,6 +27,7 @@ use {
 };
 
 pub mod balancer;
+pub mod kyber;
 pub mod swapr;
 pub mod uniswap;
 pub mod zeroex;
@@ -107,6 +109,16 @@ impl Fetcher {
         )
         .await?;
 
+        let kyberswap: Vec<_> = future::try_join_all(
+            config
+                .kyberswap
+                .as_ref()
+                .map(|config| kyber::collector(eth, block_stream.clone(), config))
+                .into_iter()
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+
         let base_tokens = BaseTokens::new(
             eth.contracts().weth().address(),
             &config
@@ -120,7 +132,7 @@ impl Fetcher {
         Ok(Self {
             blocks: block_stream.clone(),
             inner: LiquidityCollector {
-                liquidity_sources: [uni_v2, swapr, bal_v2, uni_v3, zeroex]
+                liquidity_sources: [uni_v2, swapr, bal_v2, uni_v3, zeroex, kyberswap]
                     .into_iter()
                     .flatten()
                     .collect(),
@@ -144,10 +156,7 @@ impl Fetcher {
             })
             .collect();
 
-        tracing::info!(
-            "Fetching liquidity for {:?}",
-            pairs
-        );
+        tracing::info!("Fetching liquidity for {:?}", pairs);
 
         let block = match block {
             infra::liquidity::AtBlock::Recent => recent_block_cache::Block::Recent,
@@ -159,10 +168,7 @@ impl Fetcher {
         };
         let liquidity = self.inner.get_liquidity(pairs, block).await?;
 
-        tracing::info!(
-            "Fetched liquidity: {:?}",
-            liquidity
-        );
+        tracing::info!("Fetched liquidity: {:?}", liquidity);
 
         let liquidity = liquidity
             .into_iter()

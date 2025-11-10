@@ -2,13 +2,9 @@ use {
     crate::{
         domain::{competition::bad_tokens, eth},
         infra::{
-            self,
-            blockchain,
+            self, blockchain,
             config::file,
-            liquidity,
-            mempool,
-            notify,
-            simulator,
+            liquidity, mempool, notify, simulator,
             solver::{self, BadTokenDetection, SolutionMerging},
         },
     },
@@ -304,6 +300,12 @@ pub async fn load(chain: Chain, path: &Path) -> infra::Config {
                     base_url: config.base_url,
                     api_key: config.api_key,
                     http_timeout: config.http_timeout,
+                }),
+            kyberswap: config
+                .liquidity
+                .kyberswap
+                .map(|config| liquidity::config::Kyberswap {
+                    routing_api: config.routing_api,
                 }),
         },
         liquidity_sources_notifier: config.liquidity_sources_notifier.map(|notifier| {

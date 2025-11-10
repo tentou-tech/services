@@ -40,6 +40,7 @@ pub mod trace_many;
 pub mod trade_finding;
 pub mod url;
 pub mod zeroex_api;
+pub mod kyber_api;
 
 /// anyhow errors are not clonable natively. This is a workaround that creates a
 /// new anyhow error based on formatting the error with its inner sources

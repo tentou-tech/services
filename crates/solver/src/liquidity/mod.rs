@@ -1,4 +1,5 @@
 pub mod balancer_v2;
+pub mod kyber;
 pub mod order_converter;
 pub mod slippage;
 pub mod uniswap_v2;
@@ -80,6 +81,7 @@ where
 pub enum Exchange {
     GnosisProtocol,
     ZeroEx,
+    Kyber,
 }
 
 /// Used to differentiate between different types of orders that can be sent to
@@ -113,6 +115,7 @@ pub enum LiquidityOrderId {
     /// liquidity orders
     Protocol(OrderUid),
     ZeroEx(String),
+    Kyber(String),
 }
 
 #[cfg(test)]

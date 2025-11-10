@@ -1,0 +1,3 @@
+chain-id = "999"
+solver-name = "Kyber Aggregator Solver"
+routing_api = "https://aggregator-api.kyberswap.com/hyperevm/api/v1"

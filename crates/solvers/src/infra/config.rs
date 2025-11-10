@@ -53,6 +53,7 @@ struct Config {
     /// If this is configured the solver will also use the Uniswap V3 liquidity
     /// sources that rely on RPC request.
     uni_v3_node_url: Option<Url>,
+    routing_api: Option<Url>,
 }
 
 /// Load the driver configuration from a TOML file.
@@ -90,6 +91,7 @@ pub async fn load(path: &Path) -> solver::Config {
         solution_gas_offset: config.solution_gas_offset.into(),
         native_token_price_estimation_amount: config.native_token_price_estimation_amount,
         uni_v3_node_url: config.uni_v3_node_url,
+        routing_api: config.routing_api,
     }
 }
 

@@ -8,11 +8,7 @@ use {
     hex_literal::hex,
     reqwest::Url,
     shared::sources::uniswap_v2::{
-        BAOSWAP_INIT,
-        HONEYSWAP_INIT,
-        SUSHISWAP_INIT,
-        SWAPR_INIT,
-        TESTNET_UNISWAP_INIT,
+        BAOSWAP_INIT, HONEYSWAP_INIT, SUSHISWAP_INIT, SWAPR_INIT, TESTNET_UNISWAP_INIT,
         UNISWAP_INIT,
     },
     std::{collections::HashSet, time::Duration},
@@ -43,6 +39,9 @@ pub struct Config {
 
     /// 0x liquidity fetcher.
     pub zeroex: Option<ZeroEx>,
+
+    /// Kyberswap liquidity fetcher.
+    pub kyberswap: Option<Kyberswap>,
 }
 
 /// Uniswap V2 (and Uniswap V2 clone) liquidity fetching options.
@@ -302,4 +301,20 @@ pub struct ZeroEx {
     #[debug(ignore)]
     pub api_key: Option<String>,
     pub http_timeout: Duration,
+}
+
+/// Kyberswap liquidity fetching options.
+#[derive(Clone, Debug)]
+pub struct Kyberswap {
+    /// The URL used to connect to Kyberswap routing API.
+    pub routing_api: String,
+}
+
+impl Kyberswap {
+    /// Returns the liquidity configuration for Kyberswap.
+    pub fn kyberswap(routing_api: &str) -> Option<Self> {
+        Some(Self {
+            routing_api: routing_api.to_string(),
+        })
+    }
 }

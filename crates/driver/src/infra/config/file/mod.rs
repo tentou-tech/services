@@ -457,10 +457,21 @@ struct LiquidityConfig {
     #[serde(default)]
     zeroex: Option<ZeroExConfig>,
 
+    /// Liquidity provided by Kyberswap routing API.
+    #[serde(default)]
+    kyberswap: Option<KyberswapConfig>,
+
     /// Defines at which block the liquidity needs to be fetched on /solve
     /// requests.
     #[serde(default)]
     fetch_at_block: AtBlock,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct KyberswapConfig {
+    /// The URL used to connect to Kyberswap routing API.
+    routing_api: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

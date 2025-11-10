@@ -10,9 +10,7 @@ use {
     crate::{
         boundary,
         domain::{
-            auction,
-            eth,
-            liquidity,
+            auction, eth, liquidity,
             order::{self, Order},
             solution,
         },
@@ -39,6 +37,7 @@ pub struct Config {
     pub solution_gas_offset: eth::SignedGas,
     pub native_token_price_estimation_amount: eth::U256,
     pub uni_v3_node_url: Option<Url>,
+    pub routing_api: Option<Url>,
 }
 
 struct Inner {
@@ -73,6 +72,7 @@ struct Inner {
 
     /// If provided, the solver can rely on Uniswap V3 LPs
     uni_v3_quoter_v2: Option<Arc<contracts::alloy::UniswapV3QuoterV2::Instance>>,
+    routing_api: Option<Url>,
 }
 
 impl Solver {
@@ -100,6 +100,7 @@ impl Solver {
             solution_gas_offset: config.solution_gas_offset,
             native_token_price_estimation_amount: config.native_token_price_estimation_amount,
             uni_v3_quoter_v2,
+            routing_api: config.routing_api,
         }))
     }
 

@@ -43,6 +43,7 @@ order-validation = { workspace = true }
 primitive-types = { workspace = true }
 prometheus = { workspace = true }
 prometheus-metric-storage = { workspace = true }
+serde_qs = { workspace = true }
 rand = { workspace = true }
 rate-limit = { workspace = true }
 reqwest = { workspace = true, features = ["cookies", "gzip", "json"] }

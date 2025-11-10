@@ -2,11 +2,11 @@ tx-gas-limit = "45000000"
 disable-access-list-simulation = true
 
 [[solver]]
-name = "baseline" # Arbitrary name given to this solver, must be unique
+name = "baseline"                       # Arbitrary name given to this solver, must be unique
 endpoint = "http://baseline"
 absolute-slippage = "40000000000000000" # Denominated in wei, optional
-relative-slippage = "0.1" # Percentage in the [0, 1] range
-account = "" # solver 3 private key
+relative-slippage = "0.1"               # Percentage in the [0, 1] range
+account = ""                            # solver 3 private key
 
 [submission]
 gas-price-cap = "1000000000000"
@@ -31,3 +31,6 @@ missing-pool-cache-time = "1h"
 # max-pools-per-tick-query = 9223372036854775807
 # graph-url = "https://api.goldsky.com/api/public/project_cm97l77ib0cz601wlgi9wb0ec/subgraphs/v3-subgraph/6.0.0/gn" # which subgraph url to fetch the data from
 # reinit-interval = "12h"
+
+[[liquidity.kyberswap]] # Kyberswap aggregator configuration
+routing_api = "https://aggregator-api.kyberswap.com/hyperevm/api/v1"
