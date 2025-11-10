@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: baseline-service
+  namespace: cow-protocol
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      name: api
+  selector:
+    app: baseline
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: baseline
+  namespace: cow-protocol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: baseline
+  template:
+    metadata:
+      labels:
+        app: baseline
+    spec:
+      containers:
+        - name: baseline
+          image: YOUR_REGISTRY/cow-protocol-baseline:latest
+          command: ["cargo", "run", "--bin", "solvers", "--", "baseline", "--config", "/config/baseline.toml"]
+          ports:
+            - containerPort: 80
+              name: api
+          envFrom:
+            - configMapRef:
+                name: cow-protocol-config
+          volumeMounts:
+            - name: baseline-config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: baseline-config
+          configMap:
+            name: baseline-config

@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrations
+  namespace: cow-protocol
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: flyway
+          image: YOUR_REGISTRY/cow-protocol-migrations:latest
+          envFrom:
+            - configMapRef:
+                name: cow-protocol-config
+          env:
+            - name: FLYWAY_URL
+              value: "jdbc:postgresql://db-host:5432/$(POSTGRES_DB)?user=$(POSTGRES_USER)&password=$(POSTGRES_PASSWORD)"
+  backoffLimit: 3
