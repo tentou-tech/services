@@ -52,7 +52,7 @@ jobs:
       - name: Update GitOps repo
         run: |
           git clone https://${{ secrets.REGISTRY_PASSWORD }}@github.com/tentou-tech/gitops.git
-          cd gitops/clusters/dev/cow-protocol
+          cd gitops/clusters/k8s-dev/cow-protocol
           
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
           ./kustomize edit set image image_migrations=$MIGRATIONS_IMAGE:${{ env.IMAGE_TAG }}
@@ -65,4 +65,5 @@ jobs:
           git config user.name "ci-bot"
           git config user.email "ci@bot"
           git commit -am "Update images to ${GITHUB_SHA::8}"
+
           git push
