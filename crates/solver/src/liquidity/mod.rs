@@ -1,4 +1,5 @@
 pub mod balancer_v2;
+pub mod kyberswap;
 pub mod order_converter;
 pub mod slippage;
 pub mod uniswap_v2;

@@ -46,6 +46,7 @@ impl Interaction {
                     liquidity::Kind::BalancerV2Weighted(pool) => pool.vault.into(),
                     liquidity::Kind::Swapr(pool) => pool.base.router.into(),
                     liquidity::Kind::ZeroEx(pool) => pool.zeroex.address().into_legacy(),
+                    liquidity::Kind::KyberSwap(route) => route.router_address.into(),
                 };
                 // As a gas optimization, we always approve the max amount possible. This
                 // minimizes the number of approvals necessary, and therefore

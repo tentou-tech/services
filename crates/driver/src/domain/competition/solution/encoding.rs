@@ -294,6 +294,7 @@ pub fn liquidity_interaction(
             .swap(&input, &output, &settlement.address().into())
             .ok(),
         liquidity::Kind::ZeroEx(limit_order) => limit_order.to_interaction(&input).ok(),
+        liquidity::Kind::KyberSwap(route) => route.to_interaction(&input).ok(),
     }
     .ok_or(Error::InvalidInteractionExecution(Box::new(
         liquidity.clone(),

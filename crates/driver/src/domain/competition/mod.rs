@@ -61,6 +61,7 @@ pub struct Competition {
     pub solver: Solver,
     pub eth: Ethereum,
     pub liquidity: infra::liquidity::Fetcher,
+    pub liquidity_config: infra::liquidity::Config,
     pub liquidity_sources_notifier: infra::notify::liquidity_sources::Notifier,
     pub simulator: Simulator,
     pub mempools: Mempools,
@@ -78,6 +79,7 @@ impl Competition {
         solver: Solver,
         eth: Ethereum,
         liquidity: infra::liquidity::Fetcher,
+        liquidity_config: infra::liquidity::Config,
         liquidity_sources_notifier: infra::notify::liquidity_sources::Notifier,
         simulator: Simulator,
         mempools: Mempools,
@@ -91,6 +93,7 @@ impl Competition {
             solver,
             eth,
             liquidity,
+            liquidity_config,
             liquidity_sources_notifier,
             simulator,
             mempools,
@@ -185,16 +188,42 @@ impl Competition {
 
         let auction = &auction;
 
-        // Fetch the solutions from the solver.
-        let solutions = self
-            .solver
-            .solve(auction, &liquidity)
-            .await
-            .inspect_err(|err| {
-                if err.is_timeout() {
-                    notify::solver_timeout(&self.solver, auction.id());
+        // Check if KyberSwap-only mode is enabled
+        let solutions = if self.solver.is_kyberswap_only() {
+            // Generate solutions directly using KyberSwap routes
+            match &self.liquidity_config.kyberswap {
+                Some(kyberswap_config) => {
+                    let generator = infra::solver::kyberswap::KyberSwapSolutionGenerator::new(
+                        &self.eth,
+                        kyberswap_config,
+                        self.solver.clone(),
+                    )
+                    .map_err(|err| {
+                        tracing::error!(?err, "Failed to create KyberSwap solution generator");
+                        Error::Solver(infra::solver::Error::Other(err.to_string()))
+                    })?;
+                    
+                    generator.solve(auction).await.map_err(|err| {
+                        tracing::error!(?err, "KyberSwap solution generation failed");
+                        Error::Solver(infra::solver::Error::Other(err.to_string()))
+                    })?
                 }
-            })?;
+                None => {
+                    tracing::error!("KyberSwap-only mode enabled but no KyberSwap config found");
+                    return Err(Error::Solver(infra::solver::Error::Other("KyberSwap-only mode requires KyberSwap liquidity configuration".to_string())));
+                }
+            }
+        } else {
+            // Fetch the solutions from the solver engine.
+            self.solver
+                .solve(auction, &liquidity)
+                .await
+                .inspect_err(|err| {
+                    if err.is_timeout() {
+                        notify::solver_timeout(&self.solver, auction.id());
+                    }
+                })?
+        };
 
         let deadline = auction.deadline(self.solver.timeouts()).driver();
         observe::postprocessing(&solutions, deadline);

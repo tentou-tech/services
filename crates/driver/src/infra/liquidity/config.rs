@@ -43,6 +43,9 @@ pub struct Config {
 
     /// 0x liquidity fetcher.
     pub zeroex: Option<ZeroEx>,
+
+    /// KyberSwap Aggregator liquidity fetcher.
+    pub kyberswap: Option<KyberSwap>,
 }
 
 /// Uniswap V2 (and Uniswap V2 clone) liquidity fetching options.
@@ -302,4 +305,23 @@ pub struct ZeroEx {
     #[debug(ignore)]
     pub api_key: Option<String>,
     pub http_timeout: Duration,
+}
+
+/// KyberSwap Aggregator liquidity fetching options.
+#[derive(Clone, Debug)]
+pub struct KyberSwap {
+    /// Base URL for KyberSwap Aggregator API
+    pub api_url: String,
+    /// Chain name (e.g., "hyperevm" for chain hyper EVM)
+    pub chain_name: String,
+    /// MetaAggregation Router v2 contract address
+    pub meta_aggregator_router: eth::ContractAddress,
+    /// HTTP request timeout
+    pub http_timeout: Duration,
+    /// Slippage tolerance in basis points (e.g., 50 = 0.5%)
+    pub slippage_bps: u32,
+    /// Cache TTL for routes (reduces API calls)
+    pub cache_ttl: Duration,
+    /// Client ID for KyberSwap API
+    pub client_id: String,
 }

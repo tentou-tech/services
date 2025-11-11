@@ -86,30 +86,73 @@ impl Order {
         eth: &Ethereum,
         solver: &Solver,
         liquidity: &infra::liquidity::Fetcher,
+        liquidity_config: &infra::liquidity::Config,
         tokens: &infra::tokens::Fetcher,
     ) -> Result<Quote, Error> {
-        let liquidity = match solver.liquidity() {
-            solver::Liquidity::Fetch => {
-                liquidity
-                    .fetch(&self.liquidity_pairs(), infra::liquidity::AtBlock::Recent)
-                    .await
-            }
-            solver::Liquidity::Skip => Default::default(),
-        };
+        // Check if KyberSwap-only mode is enabled
+        if solver.is_kyberswap_only() {
+            // Generate quote directly using KyberSwap routes with exact order amount
+            match &liquidity_config.kyberswap {
+                Some(kyberswap_config) => {
+                    let generator = infra::solver::kyberswap::KyberSwapSolutionGenerator::new(
+                        eth,
+                        kyberswap_config,
+                        solver.clone(),
+                    )
+                    .map_err(|err| {
+                        tracing::error!(?err, "Failed to create KyberSwap solution generator for quote");
+                        Error::Solver(infra::solver::Error::Other(err.to_string()))
+                    })?;
 
-        let auction = self
-            .fake_auction(eth, tokens, solver.quote_using_limit_orders())
-            .await?;
-        let solutions = solver.solve(&auction, &liquidity).await?;
-        Quote::try_new(
-            eth,
-            // TODO(#1468): choose the best solution in the future, but for now just pick the
-            // first solution
-            solutions
-                .into_iter()
-                .find(|solution| !solution.is_empty(auction.surplus_capturing_jit_order_owners()))
-                .ok_or(QuotingFailed::NoSolutions)?,
-        )
+                    // Create a fake auction with the order
+                    let auction = self
+                        .fake_auction(eth, tokens, solver.quote_using_limit_orders())
+                        .await?;
+
+                    // Generate solutions using KyberSwap with exact order amounts
+                    let solutions = generator.solve(&auction).await.map_err(|err| {
+                        tracing::error!(?err, "KyberSwap quote generation failed");
+                        Error::Solver(infra::solver::Error::Other(err.to_string()))
+                    })?;
+
+                    Quote::try_new(
+                        eth,
+                        solutions
+                            .into_iter()
+                            .find(|solution| !solution.is_empty(auction.surplus_capturing_jit_order_owners()))
+                            .ok_or(QuotingFailed::NoSolutions)?,
+                    )
+                }
+                None => {
+                    tracing::error!("KyberSwap-only mode enabled but no KyberSwap config found for quote");
+                    return Err(Error::Solver(infra::solver::Error::Other("KyberSwap-only mode requires KyberSwap liquidity configuration".to_string())));
+                }
+            }
+        } else {
+            // Normal flow: fetch liquidity and call solver engine
+            let liquidity = match solver.liquidity() {
+                solver::Liquidity::Fetch => {
+                    liquidity
+                        .fetch(&self.liquidity_pairs(), infra::liquidity::AtBlock::Recent)
+                        .await
+                }
+                solver::Liquidity::Skip => Default::default(),
+            };
+
+            let auction = self
+                .fake_auction(eth, tokens, solver.quote_using_limit_orders())
+                .await?;
+            let solutions = solver.solve(&auction, &liquidity).await?;
+            Quote::try_new(
+                eth,
+                // TODO(#1468): choose the best solution in the future, but for now just pick the
+                // first solution
+                solutions
+                    .into_iter()
+                    .find(|solution| !solution.is_empty(auction.surplus_capturing_jit_order_owners()))
+                    .ok_or(QuotingFailed::NoSolutions)?,
+            )
+        }
     }
 
     async fn fake_auction(
@@ -119,6 +162,8 @@ impl Order {
         quote_using_limit_orders: bool,
     ) -> Result<competition::Auction, Error> {
         let tokens = tokens.get(&[self.buy().token, self.sell().token]).await;
+
+        tracing::info!("Tokens in fake auction: {:#?}", tokens);
 
         let buy_token_metadata = tokens.get(&self.buy().token);
         let sell_token_metadata = tokens.get(&self.sell().token);

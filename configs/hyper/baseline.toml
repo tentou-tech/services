@@ -1,8 +1,8 @@
-chain-id = "998" # Hyper EVM Testnet
+chain-id = "999" # Hyper EVM Testnet
 base-tokens = [
-    "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # WETH
-    "0x24ac48bf01fd6CB1C3836D08b3EdC70a9C4380cA", # USDC
+    "0x5555555555555555555555555555555555555555", # WETH
 ]
-max-hops = 2
+    # "0xb88339CB7199b77E23DB6E890353E22632Ba630f", # USDC
+max-hops = 5
 max-partial-attempts = 5
 native-token-price-estimation-amount = "100000000000000000" # 0.1 HYPE

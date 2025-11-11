@@ -8,6 +8,7 @@ use {
 };
 
 pub mod balancer;
+pub mod kyberswap;
 pub mod swapr;
 pub mod uniswap;
 pub mod zeroex;
@@ -51,6 +52,7 @@ pub enum Kind {
     BalancerV2Weighted(balancer::v2::weighted::Pool),
     Swapr(swapr::Pool),
     ZeroEx(zeroex::LimitOrder),
+    KyberSwap(kyberswap::KyberSwapRoute),
 }
 
 impl From<&Kind> for &'static str {
@@ -62,6 +64,7 @@ impl From<&Kind> for &'static str {
             Kind::BalancerV2Weighted(_) => "BalancerV2Weighted",
             Kind::Swapr(_) => "Swapr",
             Kind::ZeroEx(_) => "ZeroExLimitOrder",
+            Kind::KyberSwap(_) => "KyberSwap",
         }
     }
 }

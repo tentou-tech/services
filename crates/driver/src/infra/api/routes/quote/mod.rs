@@ -23,11 +23,17 @@ async fn route(
             observe::invalid_dto(err, "order");
         })?;
         observe::quoting(&order);
+        tracing::info!("Quoting order: {:?}", order);
+        tracing::info!("State solver: {:#?}", state.solver());
+        tracing::info!("State liquidity: {:#?}", state.liquidity());
+        tracing::info!("State liquidity config: {:#?}", state.liquidity_config());
+        tracing::info!("State eth: {:#?}", state.eth());
         let quote = order
             .quote(
                 state.eth(),
                 state.solver(),
                 state.liquidity(),
+                state.liquidity_config(),
                 state.tokens(),
             )
             .await;
