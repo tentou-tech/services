@@ -46,14 +46,14 @@ graph TB
     
     %% Settlement flow
     API -->|Deliver HYPE| SpotInventory
-    SpotInventory -->|Transfer| User[User Wallet]
+    SpotInventory -->|Transfer| UserWallet[User Wallet]
     API -->|Rebalance| SpotBuy
     
     %% Hedging structure
     SpotInventory -.Delta Neutral.-> PerpShort
     SpotInventory -.Earn.-> Staking
     PerpShort -.Earn.-> Funding
-    User -.Pay 0.04%.-> SwapFees
+    UserWallet -.Pay 0.04%.-> SwapFees
     
     %% Backup
     API -.If insufficient.-> HyperSwap
