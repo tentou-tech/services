@@ -73,23 +73,29 @@ By following this pattern, the `driver-hyperliquid-template` can effectively int
 ```mermaid
 sequenceDiagram
     participant User
+    participant CowSystem
     participant Driver
     participant TradingSystem as External Trading System
     participant VaultContract as Vault Contract (on-chain)
 
-    User->>Driver: GET /quote (Token A -> Token B)
+    User->>CowSystem: Enter swap order (Token A -> Token B)
+    CowSystem-->>Driver: GET /quote (Token A -> Token B) 
+
     Driver->>TradingSystem: Get exchange rate
     TradingSystem-->>Driver: Return quote details
+    Driver-->>CowSystem: 200 OK (QuoteResponse with interactions)
     Driver-->>User: 200 OK (QuoteResponse with interactions)
 
     Note over User, Driver: User/Autopilot decides to execute the trade
 
-    User->>Driver: POST /solve (with interactions)
+    User->>CowSystem: Click "Swap" button 
+    CowSystem->>Driver: POST /solve (with interactions)
     Driver->>TradingSystem: Execute transaction with interactions
     TradingSystem-->>VaultContract: Execute transaction with interactions
     Note over VaultContract: 1. Transfer Token A from User to Vault
     Note over VaultContract: 2. Transfer Token B from Vault to User
     VaultContract-->>TradingSystem: Transaction confirmation
     TradingSystem-->>Driver: Transaction confirmation
-    Driver-->>User: 200 OK (Solve accepted)
+    Driver-->>CowSystem: 200 OK (Solve accepted)
+    CowSystem-->>User: 200 OK (Swap executed)
 ```
