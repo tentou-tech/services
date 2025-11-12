@@ -69,6 +69,8 @@ services:
       dockerfile: ./playground/Dockerfile
     restart: always
     command: ["cargo", "watch", "-x", "run --bin orderbook"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - NODE_URL=http://chain:8545
       - DB_WRITE_URL=postgres://db:5432/?user=${POSTGRES_USER}&password=${POSTGRES_PASSWORD}
@@ -79,9 +81,9 @@ services:
       - EIP1271_SKIP_CREATION_VALIDATION=true
       - ENABLE_EIP1271_ORDERS=true
       - PRICE_ESTIMATORS=None
-      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
-      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
-      - DRIVERS=baseline|http://driver/baseline
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://host.docker.internal:9000/baseline
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://host.docker.internal:9000/baseline
+      - DRIVERS=baseline|http://host.docker.internal:9000/baseline
       - BIND_ADDRESS=0.0.0.0:80
       - CHAIN_ID=$CHAIN
       - BASELINE_SOURCES=None
@@ -107,6 +109,8 @@ services:
       dockerfile: ./playground/Dockerfile
     restart: always
     command: ["cargo", "watch", "-x", "run --bin autopilot"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DB_WRITE_URL=postgres://db:5432/?user=${POSTGRES_USER}&password=${POSTGRES_PASSWORD}
       - DB_READ_URL=postgres://db:5432/?user=${POSTGRES_USER}&password=${POSTGRES_PASSWORD}
@@ -121,9 +125,9 @@ services:
       - NATIVE_PRICE_CACHE_MAX_UPDATE_SIZE=100
       - NATIVE_PRICE_CACHE_MAX_AGE=20m
       - SOLVER_TIME_LIMIT=5
-      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
-      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
-      - DRIVERS=baseline|http://driver/baseline|0xa0Ee7A142d267C1f36714E4a8F75612F20a79720
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://host.docker.internal:9000/baseline
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://host.docker.internal:9000/baseline
+      - DRIVERS=baseline|http://host.docker.internal:9000/baseline|0xa0Ee7A142d267C1f36714E4a8F75612F20a79720
       - SKIP_EVENT_SYNC=true
       - BASELINE_SOURCES=None
       - RUST_BACKTRACE=1

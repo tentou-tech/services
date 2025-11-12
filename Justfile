@@ -28,6 +28,9 @@ test-e2e *filters:
 test-driver:
     RUST_MIN_STACK=3145728 cargo nextest run -p driver --test-threads 1 --run-ignored ignored-only
 
+test-driver-hyperliquid-template:
+    RUST_MIN_STACK=3145728 cargo nextest run -p driver-hyperliquid-template --test-threads 1 --run-ignored ignored-only
+
 # Run clippy
 clippy:
     cargo clippy --locked --workspace --all-features --all-targets -- -D warnings
