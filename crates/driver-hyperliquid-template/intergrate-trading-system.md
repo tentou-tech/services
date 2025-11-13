@@ -4,12 +4,14 @@ This guide explains how to integrate an external trading system, particularly on
 
 ## Core Concept: Vault-based Swaps
 
-In this integration model, the `vault` contract acts as an intermediary for token swaps. When a user wants to swap Token A for Token B, the process involves two main interactions:
+In this integration model, the `vault` contract acts as a central intermediary for token swaps. The `driver-hyperliquid-template`, acting as a solver, is responsible for constructing the necessary on-chain `interactions` that utilize this `vault` for token transfers.
 
-1.  **User to Vault**: The user transfers the `sellToken` (Token A) to the `vault` contract.
-2.  **Vault to User**: The `vault` contract then transfers the `buyToken` (Token B) to the user.
+When a user wants to swap Token A for Token B, the solver's proposed solution, executed via the settlement contract, will orchestrate two main types of interactions involving the `vault`:
 
-This design centralizes liquidity management within the `vault`, simplifying the solver's role in executing trades.
+1.  **User to Vault (Sell Token)**: The user first grants approval to the `vault` contract (or the settlement contract, which then calls the vault) to spend their `sellToken` (Token A). The `vault` then pulls the `sellAmount` of Token A from the user.
+2.  **Vault to User (Buy Token)**: The `vault` contract then transfers the `buyAmount` of `buyToken` (Token B) to the user.
+
+This design centralizes liquidity management and execution within the `vault`, simplifying the on-chain logic for individual trades and allowing the solver to focus on optimal order matching and interaction construction. These vault-based interactions are generated during the `/quote` phase and ultimately executed during the `/settle` phase.
 
 ## API Integration Flow
 
