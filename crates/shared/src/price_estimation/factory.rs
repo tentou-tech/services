@@ -191,17 +191,45 @@ impl<'a> PriceEstimatorFactory<'a> {
                 let native_token_price_estimation_amount =
                     self.native_token_price_estimation_amount()?;
                 let estimator = self.get_estimator(driver)?.native.clone();
+
+                // check if only use kyper-swap
+                println!("driver: {:?}", driver.name);
+                let is_kyper_swap_only = driver.name == "baseline";
+                let native_estimator = if is_kyper_swap_only {
+                    // KyberSwap doesn't support Buy orders, so use Sell orders
+                    NativePriceEstimator::new_with_revert_order(
+                        Arc::new(self.sanitized(estimator)),
+                        self.network.native_token,
+                        native_token_price_estimation_amount,
+                    )
+                } else {
+                    // Default: use Buy orders
+                    NativePriceEstimator::new(
+                        Arc::new(self.sanitized(estimator)),
+                        self.network.native_token,
+                        native_token_price_estimation_amount,
+                    )
+                };
+                
                 Ok((
                     driver.name.clone(),
                     Arc::new(InstrumentedPriceEstimator::new(
-                        NativePriceEstimator::new(
-                            Arc::new(self.sanitized(estimator)),
-                            self.network.native_token,
-                            native_token_price_estimation_amount,
-                        ),
+                        native_estimator,
                         driver.name.to_string(),
                     )),
                 ))
+
+                // Ok((
+                //     driver.name.clone(),
+                //     Arc::new(InstrumentedPriceEstimator::new(
+                //         NativePriceEstimator::new(
+                //             Arc::new(self.sanitized(estimator)),
+                //             self.network.native_token,
+                //             native_token_price_estimation_amount,
+                //         ),
+                //         driver.name.to_string(),
+                //     )),
+                // ))
             }
             NativePriceEstimatorSource::OneInchSpotPriceApi => {
                 let name = "OneInchSpotPriceApi".to_string();

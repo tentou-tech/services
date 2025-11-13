@@ -155,6 +155,8 @@ impl Fulfillment {
                 }),
             };
 
+            println!("fee: {:#?}", fee);
+
             let executed_with_fee = order::TargetAmount(
                 executed
                     .0
@@ -167,12 +169,17 @@ impl Fulfillment {
             }
         };
 
+        println!("order: {:#?}", order);
+
         // Only accept solver-computed fees if the order requires them, otherwise the
         // protocol pre-determines the fee and the solver must respect it.
         let valid_fee = match &fee {
             Fee::Static => !order.solver_determines_fee(),
             Fee::Dynamic(_) => order.solver_determines_fee(),
         };
+
+        println!("valid_fee: {:#?}", valid_fee);
+        println!("valid_execution: {:#?}", valid_execution);
 
         if valid_execution && valid_fee {
             Ok(Self {

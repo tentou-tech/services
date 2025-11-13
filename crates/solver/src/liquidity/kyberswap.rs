@@ -29,6 +29,7 @@ use {
     },
     std::{
         collections::{HashMap, HashSet},
+        str::FromStr,
         sync::Arc,
         time::{Duration, Instant},
     },
@@ -194,7 +195,6 @@ impl KyberSwapLiquidity {
                 amount_in,
                 gas_include: Some(true),
                 gas_price: None, // Let KyberSwap use current gas price
-                save_gas: Some(false),
             })
             .await?;
 
@@ -239,10 +239,10 @@ impl KyberSwapLiquidity {
             token_in,
             token_out,
             amount_in,
-            amount_out: route_summary.amount_out,
+            amount_out: U256::from_str(&route_summary.amount_out).unwrap_or_default(),
             encoded_data: Bytes(encoded_data),
             router_address: build_response.router_address,
-            gas_estimate: route_summary.gas,
+            gas_estimate: route_summary.gas.parse::<u64>().unwrap_or_default(),
         })
     }
 }

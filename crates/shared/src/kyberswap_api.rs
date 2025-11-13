@@ -8,15 +8,12 @@
 use {
     anyhow::{Context, Result},
     ethcontract::{H160, U256},
-    observe::tracing::tracing_headers,
     reqwest::{Client, ClientBuilder, StatusCode, Url},
     serde::{Deserialize, Deserializer, Serialize},
     serde_with::{DisplayFromStr, serde_as},
-    std::str::FromStr,
-    std::time::Duration,
+    std::{str::FromStr, time::Duration},
     thiserror::Error,
-    tracing::{debug, instrument},
-    std::sync::Arc,
+    tracing::instrument,
 };
 
 /// Helper to deserialize f64 from either string or number
@@ -76,74 +73,140 @@ pub struct RouteRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub gas_price: Option<U256>,
-    /// Whether to optimize for lowest gas cost
+}
+
+/// Pool extra information
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct PoolExtra {
+    #[serde(rename = "swapFee", skip_serializing_if = "Option::is_none")]
+    pub swap_fee: Option<u64>,
+    #[serde(rename = "priceLimit", skip_serializing_if = "Option::is_none")]
+    pub price_limit: Option<serde_json::Value>,
+    #[serde(rename = "bufferIn", skip_serializing_if = "Option::is_none")]
+    pub buffer_in: Option<String>,
+    #[serde(rename = "bufferOut", skip_serializing_if = "Option::is_none")]
+    pub buffer_out: Option<String>,
+    #[serde(rename = "blockNumber", skip_serializing_if = "Option::is_none")]
+    pub block_number: Option<u64>,
+}
+
+/// Extra information for route step
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct RouteStepExtra {
+    #[serde(
+        rename = "NextStateTickCurrent",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_state_tick_current: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub save_gas: Option<bool>,
+    pub _cs: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub _ts: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ri: Option<String>,
+    #[serde(rename = "nSqrtRx96", skip_serializing_if = "Option::is_none")]
+    pub n_sqrt_rx96: Option<String>,
 }
 
 /// A single step in a swap route (can be multi-hop)
-#[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct RouteStep {
-    /// Pool/DEX identifier
     pub pool: String,
-    /// Input token for this step
+    #[serde(rename = "tokenIn")]
     pub token_in: String,
-    /// Output token for this step
+    #[serde(rename = "tokenOut")]
     pub token_out: String,
-    /// Swap amount for this step
+    #[serde(rename = "swapAmount")]
     pub swap_amount: String,
-    /// Limit return amount (for slippage protection)
-    #[serde(default)]
-    pub limit_return_amount: String,
-    /// Exchange/DEX name
-    #[serde(default)]
+    #[serde(rename = "amountOut")]
+    pub amount_out: String,
+    #[serde(rename = "exchange")]
     pub exchange: String,
+    #[serde(rename = "poolType")]
+    pub pool_type: String,
+    #[serde(rename = "poolExtra")]
+    pub pool_extra: Option<PoolExtra>,
+    pub extra: Option<RouteStepExtra>,
+}
+
+/// Extra fee information
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct ExtraFee {
+    #[serde(rename = "feeAmount")]
+    pub fee_amount: String,
+    #[serde(rename = "chargeFeeBy")]
+    pub charge_fee_by: String,
+    #[serde(rename = "isInBps")]
+    pub is_in_bps: bool,
+    #[serde(rename = "feeReceiver")]
+    pub fee_receiver: String,
 }
 
 /// Summary of the optimal route found by KyberSwap
-#[serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct RouteSummary {
-    /// Source token address
+    #[serde(rename = "tokenIn")]
     pub token_in: String,
-    /// Destination token address
+    #[serde(rename = "amountIn")]
+    pub amount_in: String,
+    #[serde(rename = "amountInUsd")]
+    pub amount_in_usd: String,
+    #[serde(rename = "tokenOut")]
     pub token_out: String,
-    /// Input amount
-    #[serde_as(as = "DisplayFromStr")]
-    pub amount_in: U256,
-    /// Output amount (before slippage)
-    #[serde_as(as = "DisplayFromStr")]
-    pub amount_out: U256,
-    /// Estimated gas cost
-    #[serde_as(as = "DisplayFromStr")]
-    pub gas: u64,
-    /// Gas price used in calculation
+    #[serde(rename = "amountOut")]
+    pub amount_out: String,
+    #[serde(rename = "amountOutUsd")]
+    pub amount_out_usd: String,
+    #[serde(rename = "gas")]
+    pub gas: String,
+    #[serde(rename = "gasPrice")]
     pub gas_price: String,
-    /// Gas cost in USD
-    #[serde(default, deserialize_with = "deserialize_f64_from_string")]
-    pub gas_usd: f64,
-    /// L1 fee in USD (optional, only for L2 chains)
-    #[serde(default, deserialize_with = "deserialize_f64_from_string")]
-    pub l1_fee_usd: f64,
-    /// Detailed route steps
+    #[serde(rename = "gasUsd")]
+    pub gas_usd: String,
+    #[serde(rename = "l1FeeUsd")]
+    pub l1_fee_usd: String,
+    #[serde(rename = "extraFee")]
+    pub extra_fee: ExtraFee,
+    #[serde(rename = "route")]
     pub route: Vec<Vec<RouteStep>>,
+    #[serde(rename = "routeID")]
+    pub route_id: String,
+    pub checksum: String,
+    pub timestamp: u64,
 }
 
 /// Response from GET /routes endpoint
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteResponse {
-    /// The optimal route summary
+    /// Response code (0 = success)
+    pub code: i32,
+    /// Response message
+    pub message: String,
+    /// Response data
     pub data: RouteSummaryData,
+    /// Request ID
+    #[serde(default)]
+    pub request_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteSummaryData {
+    /// The optimal route summary
     pub route_summary: RouteSummary,
+    /// Router address (MetaAggregator)
+    pub router_address: String,
 }
 
 /// Request to build executable transaction data from a route
@@ -178,6 +241,56 @@ pub struct BuildRouteResponse {
     /// ETH value to send with transaction (usually "0x0")
     #[serde_as(as = "DisplayFromStr")]
     pub value: U256,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+struct RouteBuildResponse {
+    #[serde(default)]
+    pub code: i32,
+    #[serde(default)]
+    pub message: String,
+    pub data: RouteBuildResponseData,
+    #[serde(rename = "requestId", default)]
+    pub request_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+struct RouteBuildResponseData {
+    #[serde(rename = "amountIn")]
+    pub amount_in: String,
+    #[serde(rename = "amountInUsd")]
+    pub amount_in_usd: String,
+    #[serde(rename = "amountOut")]
+    pub amount_out: String,
+    #[serde(rename = "amountOutUsd")]
+    pub amount_out_usd: String,
+    pub gas: String,
+    #[serde(rename = "gasUsd")]
+    pub gas_usd: String,
+    #[serde(rename = "additionalCostUsd")]
+    pub additional_cost_usd: String,
+    #[serde(rename = "additionalCostMessage")]
+    pub additional_cost_message: String,
+    #[serde(rename = "outputChange")]
+    pub output_change: OutputChange,
+    pub data: String,
+    #[serde(rename = "routerAddress")]
+    pub router_address: String,
+    #[serde(rename = "transactionValue")]
+    pub transaction_value: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+struct OutputChange {
+    amount: String,
+    percent: f64,
+    level: i32,
 }
 
 /// Abstract KyberSwap API trait for testing/mocking
@@ -228,21 +341,6 @@ impl DefaultKyberSwapApi {
         &self,
         url: Url,
     ) -> Result<T, KyberSwapApiError> {
-        // let mut request = self.client.get(url.clone());
-        // request = request.header("User-Agent", "PostmanRuntime/7.50.0");
-        // request = request.header("Accept", "*/*");
-        // request = request.header("X-Client-Id", self.client_id.as_str());
-        // request = request.header(
-        //     "User-Agent",
-        //     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        // );
-        // request = request.header("Accept", "*/*");
-        // request = request.header("Accept-Language", "en-US,en;q=0.9");
-        // request = request.header("Accept-Encoding", "gzip, deflate");
-        // request = request.header("Sec-Fetch-Dest", "empty");
-        // request = request.header("Sec-Fetch-Mode", "cors");
-        // request = request.header("Sec-Fetch-Site", "cross-site");
-        // request = request.header("X-Client-Id", self.client_id.as_str());
 
         let request_builder = self
             .client
@@ -286,23 +384,14 @@ impl DefaultKyberSwapApi {
         url: Url,
         body: &B,
     ) -> Result<T, KyberSwapApiError> {
-        tracing::trace!("Posting to KyberSwap API: {}", url);
-
-        let mut headers = tracing_headers();
-        headers.insert(
-            "X-Client-Id",
-            self.client_id.parse().map_err(|_| {
-                KyberSwapApiError::InvalidResponse(format!(
-                    "Invalid client_id format: {}",
-                    self.client_id
-                ))
-            })?,
-        );
+        tracing::debug!("POST request to KyberSwap API: {}", url);
 
         let response = self
             .client
             .post(url.clone())
-            .headers(headers)
+            .header("User-Agent", "rust-test")
+            .header("Content-Type", "application/json")
+            .header("X-Client-Id", self.client_id.as_str())
             .json(body)
             .send()
             .await
@@ -349,14 +438,18 @@ impl KyberSwapApi for DefaultKyberSwapApi {
                 .append_pair("gasPrice", &gas_price.to_string());
         }
 
-        if let Some(save_gas) = request.save_gas {
-            url.query_pairs_mut()
-                .append_pair("saveGas", &save_gas.to_string());
-        }
-
         tracing::debug!("url: {}", url.to_string());
 
         let response: RouteResponse = self.request(url).await?;
+        
+        // Check if the API returned an error code
+        if response.code != 0 {
+            return Err(KyberSwapApiError::InvalidResponse(format!(
+                "KyberSwap API error: code={}, message={}",
+                response.code, response.message
+            )));
+        }
+        
         Ok(response.data.route_summary)
     }
 
@@ -371,27 +464,33 @@ impl KyberSwapApi for DefaultKyberSwapApi {
         #[serde(rename_all = "camelCase")]
         struct BuildRequest {
             route_summary: RouteSummary,
-            slippage: u32,
             sender: String,
             recipient: String,
-            deadline: String,
+            deadline: u64,
+            slippage_tolerance: u64,
         }
 
         let body = BuildRequest {
             route_summary: request.route_summary.clone(),
-            slippage: request.slippage,
+            slippage_tolerance: request.slippage as u64,
             sender: addr2str(request.sender),
             recipient: addr2str(request.recipient),
-            deadline: request.deadline.to_string(),
+            deadline: request.deadline,
         };
 
-        #[derive(Deserialize)]
-        struct BuildResponseWrapper {
-            data: BuildRouteResponse,
+        let response: RouteBuildResponse = self.post_request(url, &body).await?;
+        if response.code != 0 {
+            return Err(KyberSwapApiError::InvalidResponse(format!(
+                "KyberSwap API error: code={}, message={}",
+                response.code, response.message
+            )));
         }
 
-        let response: BuildResponseWrapper = self.post_request(url, &body).await?;
-        Ok(response.data)
+        Ok(BuildRouteResponse {
+            encoded_data: response.data.data,
+            router_address: H160::from_str(&response.data.router_address).unwrap_or_default(),
+            value: U256::from_str(&response.data.transaction_value).unwrap_or_default(),
+        })
     }
 }
 
@@ -416,7 +515,7 @@ pub enum KyberSwapApiError {
 
 #[cfg(test)]
 mod tests {
-    use ethcontract::tokens::Tokenize;
+    use std::{str::FromStr, sync::Arc};
 
     use super::*;
 
@@ -435,7 +534,6 @@ mod tests {
             amount_in: U256::from(1000000),
             gas_include: Some(true),
             gas_price: Some(U256::from(50)),
-            save_gas: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -453,7 +551,6 @@ mod tests {
             amount_in: U256::from(1000000),
             gas_include: Some(true),
             gas_price: None,
-            save_gas: None,
         };
         let api = DefaultKyberSwapApi::new(
             ClientBuilder::new(),
@@ -473,7 +570,7 @@ mod tests {
     #[ignore]
     async fn test_get_routes_parallel() {
         // Create API client
-        let api = Arc::new(
+        let api = std::sync::Arc::new(
             DefaultKyberSwapApi::new(
                 ClientBuilder::new(),
                 KyberSwapConfig {
@@ -493,7 +590,6 @@ mod tests {
             amount_in: U256::from(1000000),
             gas_include: Some(true),
             gas_price: None,
-            save_gas: Some(false),
         };
 
         let request2 = RouteRequest {
@@ -502,7 +598,6 @@ mod tests {
             amount_in: U256::from(100000000000000000u64),
             gas_include: Some(true),
             gas_price: None,
-            save_gas: Some(false),
         };
 
         let request3 = RouteRequest {
@@ -511,7 +606,6 @@ mod tests {
             amount_in: U256::from(100000000000000000u64),
             gas_include: Some(true),
             gas_price: None,
-            save_gas: Some(false),
         };
 
         let request4 = RouteRequest {
@@ -520,7 +614,6 @@ mod tests {
             amount_in: U256::from(100000000000000000u64),
             gas_include: Some(true),
             gas_price: None,
-            save_gas: Some(false),
         };
 
         // Execute all 4 requests in parallel

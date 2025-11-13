@@ -457,6 +457,7 @@ impl OrderQuoter {
         };
 
         let trade_query = Arc::new(parameters.to_price_query(self.default_quote_timeout));
+        println!("trade_query: {:#?}", trade_query);
         let (gas_estimate, trade_estimate, sell_token_price, _) = futures::try_join!(
             self.gas_estimator
                 .estimate()
@@ -588,6 +589,7 @@ impl OrderQuoting for OrderQuoter {
         parameters: QuoteParameters,
     ) -> Result<Quote, CalculateQuoteError> {
         let data = self.compute_quote_data(&parameters).await?;
+        println!("calculate_quote: data quote: {:#?}", data);
         let mut quote =
             Quote::new(Default::default(), data).with_additional_cost(parameters.additional_cost());
 

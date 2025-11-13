@@ -163,8 +163,6 @@ impl Order {
     ) -> Result<competition::Auction, Error> {
         let tokens = tokens.get(&[self.buy().token, self.sell().token]).await;
 
-        tracing::info!("Tokens in fake auction: {:#?}", tokens);
-
         let buy_token_metadata = tokens.get(&self.buy().token);
         let sell_token_metadata = tokens.get(&self.sell().token);
 

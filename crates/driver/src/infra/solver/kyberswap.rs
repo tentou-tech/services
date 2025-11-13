@@ -15,13 +15,13 @@ use {
         util::conv::u256::U256Ext,
     },
     anyhow::{Context, Result},
-    ethcontract::{H160, U256},
+    ethcontract::{H160},
     num::BigRational,
     shared::{
         http_client::HttpClientFactory,
         kyberswap_api::{DefaultKyberSwapApi, KyberSwapApi, KyberSwapApiError, KyberSwapConfig},
     },
-    std::{collections::HashMap, sync::Arc},
+    std::{collections::HashMap, str::FromStr, sync::Arc},
     tracing::instrument,
 };
 
@@ -39,10 +39,6 @@ impl KyberSwapSolutionGenerator {
         //     http_timeout: config.http_timeout,
         // });
 
-        let client_builder = reqwest::ClientBuilder::new()
-            .timeout(config.http_timeout);
-            // .user_agent("rust-test");
-
         let api_config = KyberSwapConfig {
             api_url: config.api_url.clone(),
             chain_name: config.chain_name.clone(),
@@ -51,7 +47,7 @@ impl KyberSwapSolutionGenerator {
         };
 
         let api = Arc::new(DefaultKyberSwapApi::new(
-            client_builder,
+            reqwest::ClientBuilder::new(),
             api_config.clone(),
         )?);
 
@@ -113,7 +109,7 @@ impl KyberSwapSolutionGenerator {
             };
 
             // Validate route output matches order requirements
-            let route_amount_out = route.amount_out;
+            let route_amount_out = eth::U256::from_str(&route.amount_out).unwrap_or_default();
             let order_amount_out = match order.side {
                 order::Side::Sell => order.buy.amount.0,
                 order::Side::Buy => order.sell.amount.0,
@@ -166,7 +162,6 @@ impl KyberSwapSolutionGenerator {
             amount_in,
             gas_include: Some(true),
             gas_price: None,
-            save_gas: Some(false),
         };
 
         tracing::info!("Fetching route for token pair: {:?}", request);
@@ -174,19 +169,19 @@ impl KyberSwapSolutionGenerator {
         let route_summary = self.api.get_routes(&request).await?;
 
         // Build the route to get encoded data
-        let build_request = shared::kyberswap_api::BuildRouteRequest {
-            route_summary: route_summary.clone(),
-            sender: self.settlement_contract,
-            recipient: self.settlement_contract,
-            slippage: 50, // 0.5% slippage
-            deadline: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                + 300, // 5 minutes from now
-        };
+        // let build_request = shared::kyberswap_api::BuildRouteRequest {
+        //     route_summary: route_summary.clone(),
+        //     sender: self.settlement_contract,
+        //     recipient: self.settlement_contract,
+        //     slippage: 50, // 0.5% slippage
+        //     deadline: std::time::SystemTime::now()
+        //         .duration_since(std::time::UNIX_EPOCH)
+        //         .unwrap()
+        //         .as_secs()
+        //         + 300, // 5 minutes from now
+        // };
 
-        let _build_response = self.api.build_route(&build_request).await?;
+        // let _build_response = self.api.build_route(&build_request).await?;
 
         Ok(route_summary)
     }
@@ -194,8 +189,8 @@ impl KyberSwapSolutionGenerator {
     /// Check if route output satisfies order requirements.
     fn satisfies_order(
         &self,
-        route_amount_out: U256,
-        order_amount_out: U256,
+        route_amount_out: eth::U256,
+        order_amount_out: eth::U256,
         side: order::Side,
     ) -> bool {
         match side {
@@ -245,19 +240,51 @@ impl KyberSwapSolutionGenerator {
             .await
             .context("Failed to build route")?;
 
+        println!("build_response: {:#?}", build_response);
+        println!("order: {:#?}", order);
+        println!("route: {:#?}", route);
+
         // Determine executed amount based on order side
         let executed = match order.side {
-            order::Side::Sell => order::TargetAmount(route.amount_in),
-            order::Side::Buy => order::TargetAmount(route.amount_out),
+            order::Side::Sell => order::TargetAmount(eth::U256::from_dec_str(&route.amount_in)?),
+            order::Side::Buy => order::TargetAmount(eth::U256::from_dec_str(&route.amount_out)?),
+        };
+        
+        // let executed = order::TargetAmount(eth::U256::from_dec_str(&route.amount_in)?);
+        println!("executed: {:#?}", executed);
+        println!("order target amount: {:#?}", order.target());
+
+        let fee = if order.solver_determines_fee() {
+            // Limit orders require Fee::Dynamic (even if fee is 0)
+            Fee::Dynamic(order::SellAmount(eth::U256::zero()))
+        } else {
+            // Market orders use Fee::Static
+            Fee::Static
         };
 
         // Create fulfillment trade
         let fulfillment = Fulfillment::new(
             order.clone(),
             executed,
-            Fee::Static, // KyberSwap handles fees internally
+            fee,
         )
-        .context("Failed to create fulfillment")?;
+        .map_err(|err| {
+            tracing::error!(
+                ?err,
+                order_uid = ?order.uid,
+                order_side = ?order.side,
+                executed_amount = ?executed,
+                sell_token = ?order.sell.token,
+                buy_token = ?order.buy.token,
+                sell_amount = ?order.sell.amount,
+                buy_amount = ?order.buy.amount,
+                route_amount_in = ?route.amount_in,
+                route_amount_out = ?route.amount_out,
+                "Failed to create fulfillment"
+            );
+            anyhow::anyhow!("Failed to create fulfillment: {}", err)
+        })?;
+        // .context("Failed to create fulfillment")?;
 
         // Calculate clearing prices from route
         let prices = self.calculate_prices(route, order)?;
@@ -287,11 +314,11 @@ impl KyberSwapSolutionGenerator {
             })],
             inputs: vec![eth::Asset {
                 token: order.sell.token,
-                amount: eth::TokenAmount(route.amount_in),
+                amount: eth::TokenAmount(eth::U256::from_str(&route.amount_in)?),
             }],
             outputs: vec![eth::Asset {
                 token: order.buy.token,
-                amount: eth::TokenAmount(route.amount_out),
+                amount: eth::TokenAmount(eth::U256::from_str(&route.amount_out)?),
             }],
             internalize: false,
         });
@@ -306,7 +333,7 @@ impl KyberSwapSolutionGenerator {
             vec![], // post_interactions
             self.solver.clone(),
             self.weth,
-            Some(eth::Gas(route.gas.into())),
+            Some(eth::Gas(eth::U256::from_str(&route.gas).unwrap_or_default().into())),
             crate::infra::config::file::FeeHandler::Driver,
             &HashSet::new(), // surplus_capturing_jit_order_owners
             HashMap::new(),  // flashloans
@@ -325,7 +352,7 @@ impl KyberSwapSolutionGenerator {
         // Use route amounts to calculate price ratio
         // Price = amount_out / amount_in
         let price_ratio =
-            BigRational::new(route.amount_out.to_big_int(), route.amount_in.to_big_int());
+            BigRational::new(eth::U256::from_str(&route.amount_out)?.to_big_int(), eth::U256::from_str(&route.amount_in)?.to_big_int());
 
         // Set a base price for the sell token (e.g., 1)
         let sell_token_price = eth::U256::from(10_u64.pow(18)); // 1e18 as base price

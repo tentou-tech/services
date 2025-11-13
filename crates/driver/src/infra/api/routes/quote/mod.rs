@@ -23,11 +23,6 @@ async fn route(
             observe::invalid_dto(err, "order");
         })?;
         observe::quoting(&order);
-        tracing::info!("Quoting order: {:?}", order);
-        tracing::info!("State solver: {:#?}", state.solver());
-        tracing::info!("State liquidity: {:#?}", state.liquidity());
-        tracing::info!("State liquidity config: {:#?}", state.liquidity_config());
-        tracing::info!("State eth: {:#?}", state.eth());
         let quote = order
             .quote(
                 state.eth(),
@@ -38,6 +33,7 @@ async fn route(
             )
             .await;
         observe::quoted(state.solver().name(), &order, &quote);
+        println!("quote: {:#?}", quote);
         Ok(axum::response::Json(dto::Quote::new(quote?)))
     };
 

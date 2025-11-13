@@ -108,15 +108,15 @@ impl Fetcher {
         )
         .await?;
 
-        let kyberswap: Vec<_> = future::try_join_all(
-            config
-                .kyberswap
-                .as_ref()
-                .map(|config| kyberswap::collector(eth, config))
-                .into_iter()
-                .collect::<Vec<_>>(),
-        )
-        .await?;
+        // let kyberswap: Vec<_> = future::try_join_all(
+        //     config
+        //         .kyberswap
+        //         .as_ref()
+        //         .map(|config| kyberswap::collector(eth, config))
+        //         .into_iter()
+        //         .collect::<Vec<_>>(),
+        // )
+        // .await?;
 
         let base_tokens = BaseTokens::new(
             eth.contracts().weth().address(),
@@ -131,7 +131,7 @@ impl Fetcher {
         Ok(Self {
             blocks: block_stream.clone(),
             inner: LiquidityCollector {
-                liquidity_sources: [uni_v2, swapr, bal_v2, uni_v3, zeroex, kyberswap]
+                liquidity_sources: [uni_v2, swapr, bal_v2, uni_v3, zeroex]
                     .into_iter()
                     .flatten()
                     .collect(),
