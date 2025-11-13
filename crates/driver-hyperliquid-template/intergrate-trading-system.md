@@ -13,11 +13,13 @@ This design centralizes liquidity management within the `vault`, simplifying the
 
 ## API Integration Flow
 
-### 1. Getting a Quote (`/quote` endpoint)
+### 1. Getting a Quote (`GET /quote`)
 
-When the `driver-hyperliquid-template` receives a `GET /quote` request for a swap (e.g., Token A -> Token B):
+This endpoint is used to obtain a price estimation for a potential trade.
 
--   The driver will internally query the external trading system (e.g., Hyperliquid) to determine the optimal `buyAmount` for a given `sellAmount` (or vice-versa).
+When the `driver-hyperliquid-template` receives a `GET /quote` request, it expects the following query parameters: `sellToken`, `buyToken`, `kind` (buy/sell), `amount`, and `deadline`.
+
+-   The driver will internally query the external trading system (e.g., Hyperliquid) to determine the optimal `buyAmount` for a given `sellAmount` (or vice-versa) based on the requested `kind` and `amount`.
 -   The response from the external trading system will be used to construct the `QuoteResponseKind`.
 -   Crucially, the `interactions` field within the `QuoteResponse` will describe the necessary on-chain steps for the swap. For a vault-based system, these interactions will typically look like this:
     -   **Interaction 1 (User to Vault)**:
@@ -29,17 +31,22 @@ When the `driver-hyperliquid-template` receives a `GET /quote` request for a swa
         -   `value`: `0` (for ERC20 transfers).
         -   `callData`: Encoded `transfer` call to move `buyAmount` of Token B from the `vault` to the user.
 
-    The `solver` field in the `QuoteResponse` should be the address of the `vault` contract, as it is the entity performing the actual token transfer to the user.
+    The `solver` field in the `QuoteResponse` should be the address of the `vault` contract, as it is the entity performing the actual token transfer to the user. The `gas` field will provide an estimated gas cost for the trade.
 
-### 2. Executing a Swap (`/solve` endpoint)
+### 2. Solving an Auction (`POST /solve`)
 
-After a quote is received and accepted, the `driver-hyperliquid-template` might receive a `POST /solve` request containing the `SolveRequest` body. This body will include the `orders` and `tokens` relevant to the auction.
+This endpoint is called by Autopilot to find the optimal settlement solution for a given auction. It does not execute the trade directly but proposes a solution.
 
--   The `SolveRequest` will contain the `interactions` that were previously generated during the quoting phase.
--   When the `solve` endpoint is called with these interactions, the driver is expected to:
-    -   Verify the validity of the proposed solution (e.g., check prices, amounts, and interactions against current market conditions).
-    -   If the solution is valid and wins the competition, the driver will then proceed to execute the swap by submitting a transaction that performs the described `interactions` on-chain.
-    -   This means the `vault` contract will be called to facilitate the token transfers as specified in the `interactions`.
+When the `driver-hyperliquid-template` receives a `POST /solve` request, the `SolveRequest` body will contain:
+
+-   `id`: A unique identifier for the auction.
+-   `orders`: A list of solvable orders included in the auction.
+-   `tokens`: Information about the tokens involved in the auction.
+-   `deadline`: The time by which the solver is expected to respond.
+
+-   The driver, acting as a solver, will process these orders and tokens, potentially querying the external trading system for the latest market data.
+-   It will then determine the best way to match and settle these orders, aiming to maximize the objective value (e.g., user surplus).
+-   The response will be a `SolveResponse`, which includes one or more `solutions`. Each solution will have a `solutionId`, a `score` (objective value), and details about how orders are executed (e.g., `executedSell`, `executedBuy`). Crucially, this response *does not* contain the calldata for on-chain execution; it only indicates the solver's proposed outcome.
 
 ### Example `QuoteResponse` (Conceptual)
 
@@ -65,6 +72,19 @@ After a quote is received and accepted, the `driver-hyperliquid-template` might 
   "jitOrders": []
 }
 ```
+
+### 3. Settling an Auction (`POST /settle`)
+
+This endpoint is called by Autopilot to instruct the solver to execute a previously found solution on-chain.
+
+When the `driver-hyperliquid-template` receives a `POST /settle` request, the `SettleRequest` body will contain:
+
+-   `solutionId`: The unique identifier of the solution to be executed, which was previously returned by the `/solve` endpoint.
+-   `submissionDeadlineLatestBlock`: The last block number in which the solution transaction can be included.
+-   `auctionId`: The ID of the auction in which the specified solution is competing.
+
+-   Upon receiving this request, the driver is expected to immediately submit the transaction to the blockchain that performs the on-chain `interactions` associated with the `solutionId`.
+-   This action finalizes the swap, transferring tokens via the `vault` contract as described in the solution.
 
 By following this pattern, the `driver-hyperliquid-template` can effectively integrate with external trading systems that rely on a `vault` for secure and efficient token swaps.
 
