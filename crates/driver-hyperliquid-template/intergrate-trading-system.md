@@ -75,27 +75,58 @@ sequenceDiagram
     participant User
     participant CowSystem
     participant Driver
+    participant Onchain
     participant TradingSystem as External Trading System
-    participant VaultContract as Vault Contract (on-chain)
 
     User->>CowSystem: Enter swap order (Token A -> Token B)
+    activate CowSystem
     CowSystem-->>Driver: GET /quote (Token A -> Token B) 
-
-    Driver->>TradingSystem: Get exchange rate
-    TradingSystem-->>Driver: Return quote details
+    activate Driver
+    Note right of Driver: There are 2 ways:<br> 1. Build quote on External Trading System<br>2. Build quote on Driver
+    alt Build quote on External Trading System
+      Driver->>TradingSystem: Get quote
+      activate TradingSystem
+      TradingSystem->>TradingSystem: Build quote on External Trading System
+      TradingSystem-->>Driver: Return quote details
+      deactivate TradingSystem
+    else Build quote on Driver
+      loop
+        Driver->>TradingSystem: Get latest limit orders
+        activate TradingSystem
+        TradingSystem-->>Driver: Return limit orders
+        deactivate TradingSystem
+        Driver->>Driver: Build quote from limit orders
+      end 
+    end
     Driver-->>CowSystem: 200 OK (QuoteResponse with interactions)
-    Driver-->>User: 200 OK (QuoteResponse with interactions)
-
-    Note over User, Driver: User/Autopilot decides to execute the trade
+    deactivate Driver
+    CowSystem-->>User: 200 OK (QuoteResponse with interactions)
+    deactivate CowSystem
 
     User->>CowSystem: Click "Swap" button 
+    activate CowSystem
+    
     CowSystem->>Driver: POST /solve (with interactions)
-    Driver->>TradingSystem: Execute transaction with interactions
-    TradingSystem-->>VaultContract: Execute transaction with interactions
-    Note over VaultContract: 1. Transfer Token A from User to Vault
-    Note over VaultContract: 2. Transfer Token B from Vault to User
-    VaultContract-->>TradingSystem: Transaction confirmation
-    TradingSystem-->>Driver: Transaction confirmation
-    Driver-->>CowSystem: 200 OK (Solve accepted)
-    CowSystem-->>User: 200 OK (Swap executed)
+    activate Driver
+    Driver->>Driver: Validate interactions, create auction solution
+    Note over Driver, TradingSystem: may be need query External Trading System for latest data
+    Driver-->>CowSystem: auction solution
+    deactivate Driver
+    CowSystem-->>CowSystem: Check if this solution wins
+    alt This solution wins
+      CowSystem->>Driver: POST /settle
+      activate Driver
+      Driver->>Onchain: Submit auction settlement transaction
+      activate Onchain
+      Onchain-->>Driver: Tx completion
+      deactivate Onchain
+      Driver-->>CowSystem: Notify swap completion
+      Driver->>TradingSystem: Notify swap completion
+      deactivate Driver
+    else this solution loses
+      CowSystem->>CowSystem: Call winner driver's /settle 
+    end
+    
+    CowSystem-->>User: Notify swap completion
+    deactivate CowSystem
 ```
