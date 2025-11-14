@@ -15,7 +15,7 @@ use {
         util::conv::u256::U256Ext,
     },
     anyhow::{Context, Result},
-    ethcontract::{H160},
+    ethcontract::H160,
     num::BigRational,
     shared::{
         http_client::HttpClientFactory,
@@ -66,6 +66,7 @@ impl KyberSwapSolutionGenerator {
         let mut solution_id_counter = 0u64;
 
         tracing::info!("Solving auction orders length: {}", auction.orders().len());
+        println!("kyberswap_solve auction: {:#?}", auction);
 
         for order in auction.orders() {
             // Determine token pair and amount based on order side
@@ -143,6 +144,8 @@ impl KyberSwapSolutionGenerator {
                 }
             }
         }
+
+        println!("solutions kyberswap: {:#?}", solutions);
 
         Ok(solutions)
     }
@@ -249,7 +252,7 @@ impl KyberSwapSolutionGenerator {
             order::Side::Sell => order::TargetAmount(eth::U256::from_dec_str(&route.amount_in)?),
             order::Side::Buy => order::TargetAmount(eth::U256::from_dec_str(&route.amount_out)?),
         };
-        
+
         // let executed = order::TargetAmount(eth::U256::from_dec_str(&route.amount_in)?);
         println!("executed: {:#?}", executed);
         println!("order target amount: {:#?}", order.target());
@@ -263,12 +266,7 @@ impl KyberSwapSolutionGenerator {
         };
 
         // Create fulfillment trade
-        let fulfillment = Fulfillment::new(
-            order.clone(),
-            executed,
-            fee,
-        )
-        .map_err(|err| {
+        let fulfillment = Fulfillment::new(order.clone(), executed, fee).map_err(|err| {
             tracing::error!(
                 ?err,
                 order_uid = ?order.uid,
@@ -286,8 +284,12 @@ impl KyberSwapSolutionGenerator {
         })?;
         // .context("Failed to create fulfillment")?;
 
+        println!("create_solution fulfillment: {:#?}", fulfillment);
+
         // Calculate clearing prices from route
         let prices = self.calculate_prices(route, order)?;
+
+        println!("create_solution prices: {:#?}", prices);
 
         // Parse encoded data from hex string
         let encoded_data = alloy::hex::decode(
@@ -333,12 +335,16 @@ impl KyberSwapSolutionGenerator {
             vec![], // post_interactions
             self.solver.clone(),
             self.weth,
-            Some(eth::Gas(eth::U256::from_str(&route.gas).unwrap_or_default().into())),
+            Some(eth::Gas(
+                eth::U256::from_str(&route.gas).unwrap_or_default().into(),
+            )),
             crate::infra::config::file::FeeHandler::Driver,
             &HashSet::new(), // surplus_capturing_jit_order_owners
             HashMap::new(),  // flashloans
         )
         .context("Failed to create solution")?;
+
+        println!("solution: {:#?}", solution);
 
         Ok(solution)
     }
@@ -349,17 +355,16 @@ impl KyberSwapSolutionGenerator {
         route: &shared::kyberswap_api::RouteSummary,
         order: &order::Order,
     ) -> Result<HashMap<TokenAddress, eth::U256>> {
-        // Use route amounts to calculate price ratio
-        // Price = amount_out / amount_in
-        let price_ratio =
-            BigRational::new(eth::U256::from_str(&route.amount_out)?.to_big_int(), eth::U256::from_str(&route.amount_in)?.to_big_int());
 
-        // Set a base price for the sell token (e.g., 1)
-        let sell_token_price = eth::U256::from(10_u64.pow(18)); // 1e18 as base price
-        let buy_token_price = eth::U256::from_big_int(
-            &(BigRational::from(sell_token_price.to_big_int()) / price_ratio).to_integer(),
-        )
-        .context("Price calculation overflow")?;
+        let amount_in = eth::U256::from_dec_str(&route.amount_in)?;
+        let amount_out = eth::U256::from_dec_str(&route.amount_out)?;
+
+        // Set a base price for the sell token (1e18)
+        let sell_token_price = eth::U256::from(10_u64.pow(18));
+        let buy_token_price = sell_token_price
+            .checked_mul(amount_in)
+            .and_then(|x| x.checked_div(amount_out))
+            .context("Price calculation overflow or division by zero")?;
 
         let mut prices = HashMap::new();
         prices.insert(order.sell.token, sell_token_price);
