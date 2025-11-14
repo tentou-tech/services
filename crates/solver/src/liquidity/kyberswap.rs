@@ -8,11 +8,7 @@ use {
     crate::{
         interactions::allowances::{AllowanceManager, AllowanceManaging, Allowances},
         liquidity::{
-            Exchange,
-            LimitOrder,
-            LimitOrderExecution,
-            LimitOrderId,
-            LiquidityOrderId,
+            Exchange, LimitOrder, LimitOrderExecution, LimitOrderId, LiquidityOrderId,
             SettlementHandling,
         },
         liquidity_collector::LiquidityCollecting,
@@ -56,16 +52,17 @@ impl RouteCache {
         }
     }
 
-    fn get(&self, token_in: H160, token_out: H160, amount_in: U256, ttl: Duration) -> Option<KyberSwapRoute> {
+    fn get(
+        &self,
+        token_in: H160,
+        token_out: H160,
+        amount_in: U256,
+        ttl: Duration,
+    ) -> Option<KyberSwapRoute> {
         let key = (token_in, token_out, amount_in);
         if let Some(cached) = self.entries.get(&key) {
             if cached.timestamp.elapsed() < ttl {
-                tracing::debug!(
-                    ?token_in,
-                    ?token_out,
-                    ?amount_in,
-                    "KyberSwap cache hit"
-                );
+                tracing::debug!(?token_in, ?token_out, ?amount_in, "KyberSwap cache hit");
                 return Some(cached.route.clone());
             }
         }
@@ -85,7 +82,8 @@ impl RouteCache {
 
     /// Clean up expired entries to prevent unbounded growth
     fn cleanup(&mut self, ttl: Duration) {
-        self.entries.retain(|_, cached| cached.timestamp.elapsed() < ttl);
+        self.entries
+            .retain(|_, cached| cached.timestamp.elapsed() < ttl);
     }
 }
 
@@ -130,7 +128,7 @@ impl KyberSwapLiquidity {
         web3: Web3,
     ) -> Self {
         let allowance_manager = AllowanceManager::new(web3, settlement_contract);
-        
+
         Self {
             api,
             meta_aggregator_router,
@@ -166,7 +164,9 @@ impl KyberSwapLiquidity {
             "KyberSwap cache miss, fetching from API"
         );
 
-        let route = self.fetch_and_build_route(token_in, token_out, amount_in).await?;
+        let route = self
+            .fetch_and_build_route(token_in, token_out, amount_in)
+            .await?;
 
         // Update cache
         {
@@ -235,11 +235,29 @@ impl KyberSwapLiquidity {
             KyberSwapApiError::InvalidResponse(format!("Invalid hex in encoded_data: {}", e))
         })?;
 
+        tracing::info!(
+            amount_out = ?route_summary.amount_out,
+            "fetch_and_build_route::Original amount_out"
+        );
+
+        // Update amount_out with slippage
+        let slippage = self.slippage_bps;
+        let amount_out = U256::from_dec_str(&route_summary.amount_out)
+            .unwrap_or_default()
+            .saturating_mul(U256::from(10_000 - slippage))
+            .checked_div(U256::from(10_000))
+            .unwrap_or_default();
+
+        tracing::info!(
+            amount_out = ?amount_out,
+            "fetch_and_build_route::Updated amount_out with slippage"
+        );
+
         Ok(KyberSwapRoute {
             token_in,
             token_out,
             amount_in,
-            amount_out: U256::from_str(&route_summary.amount_out).unwrap_or_default(),
+            amount_out,
             encoded_data: Bytes(encoded_data),
             router_address: build_response.router_address,
             gas_estimate: route_summary.gas.parse::<u64>().unwrap_or_default(),
@@ -261,12 +279,15 @@ impl LiquidityCollecting for KyberSwapLiquidity {
 
         for pair in pairs {
             let (token_a, token_b) = pair.get();
-            
+
             // Try to get route for token_a -> token_b
             // Use a reasonable default amount for quoting (e.g., 1 token with 18 decimals)
             let default_amount = U256::from(10).pow(U256::from(18));
 
-            match self.get_route_for_pair(token_a, token_b, default_amount).await {
+            match self
+                .get_route_for_pair(token_a, token_b, default_amount)
+                .await
+            {
                 Ok(route) => {
                     // Get allowances for the input token
                     let tokens = [token_a].into_iter().collect();
@@ -329,10 +350,7 @@ impl LiquidityCollecting for KyberSwapLiquidity {
             }
         }
 
-        tracing::info!(
-            route_count = liquidity.len(),
-            "Fetched KyberSwap liquidity"
-        );
+        tracing::info!(route_count = liquidity.len(), "Fetched KyberSwap liquidity");
 
         Ok(liquidity)
     }
@@ -351,7 +369,11 @@ impl SettlementHandling<LimitOrder> for KyberSwapSettlementHandler {
         self
     }
 
-    fn encode(&self, execution: LimitOrderExecution, encoder: &mut SettlementEncoder) -> Result<()> {
+    fn encode(
+        &self,
+        execution: LimitOrderExecution,
+        encoder: &mut SettlementEncoder,
+    ) -> Result<()> {
         // Validate execution amount matches route
         if execution.filled != self.route.amount_in {
             anyhow::bail!(
@@ -362,11 +384,13 @@ impl SettlementHandling<LimitOrder> for KyberSwapSettlementHandler {
         }
 
         // Add approval if needed
-        let approval = self.allowances.approve_token(shared::http_solver::model::TokenAmount::new(
-            self.route.token_in,
-            execution.filled,
-        ))?;
-        
+        let approval =
+            self.allowances
+                .approve_token(shared::http_solver::model::TokenAmount::new(
+                    self.route.token_in,
+                    execution.filled,
+                ))?;
+
         if let Some(approval) = approval {
             encoder.append_to_execution_plan(Arc::new(approval));
         }
@@ -429,10 +453,17 @@ mod tests {
         cache.insert(token_in, token_out, amount, route.clone());
 
         // Should hit cache immediately
-        assert!(cache.get(token_in, token_out, amount, Duration::from_secs(60)).is_some());
+        assert!(
+            cache
+                .get(token_in, token_out, amount, Duration::from_secs(60))
+                .is_some()
+        );
 
         // Should miss cache with 0 TTL
-        assert!(cache.get(token_in, token_out, amount, Duration::from_secs(0)).is_none());
+        assert!(
+            cache
+                .get(token_in, token_out, amount, Duration::from_secs(0))
+                .is_none()
+        );
     }
 }
-

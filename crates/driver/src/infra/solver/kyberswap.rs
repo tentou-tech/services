@@ -12,16 +12,13 @@ use {
         },
         infra::{Solver, blockchain::Ethereum, liquidity::config::KyberSwap},
         util,
-        util::conv::u256::U256Ext,
     },
     anyhow::{Context, Result},
-    ethcontract::H160,
-    num::BigRational,
-    shared::{
-        http_client::HttpClientFactory,
-        kyberswap_api::{DefaultKyberSwapApi, KyberSwapApi, KyberSwapApiError, KyberSwapConfig},
+    ethcontract::{H160, U256},
+    shared::kyberswap_api::{
+        DefaultKyberSwapApi, KyberSwapApi, KyberSwapApiError, KyberSwapConfig,
     },
-    std::{collections::HashMap, str::FromStr, sync::Arc},
+    std::{collections::HashMap, sync::Arc},
     tracing::instrument,
 };
 
@@ -86,7 +83,7 @@ impl KyberSwapSolutionGenerator {
             };
 
             // Fetch route from KyberSwap API with exact order amount
-            let route = match self.fetch_route(token_in, token_out, amount_in).await {
+            let mut route = match self.fetch_route(token_in, token_out, amount_in).await {
                 Ok(route) => route,
                 Err(KyberSwapApiError::NoRouteFound) => {
                     tracing::debug!(
@@ -110,7 +107,23 @@ impl KyberSwapSolutionGenerator {
             };
 
             // Validate route output matches order requirements
-            let route_amount_out = eth::U256::from_str(&route.amount_out).unwrap_or_default();
+            // Update amount_out with slippage
+            let slippage = 50u32; // 0.5% slippage
+            tracing::info!(
+                route_amount_out = ?route.amount_out,
+                "solve::Original route amount out"
+            );
+            let route_amount_out = eth::U256::from_dec_str(&route.amount_out)
+                .unwrap_or_default()
+                .saturating_mul(U256::from(10_000 - slippage))
+                .checked_div(U256::from(10_000))
+                .unwrap_or_default();
+
+            tracing::info!(
+                route_amount_out = ?route_amount_out,
+                "solve::Route amount out with slippage"
+            );
+
             let order_amount_out = match order.side {
                 order::Side::Sell => order.buy.amount.0,
                 order::Side::Buy => order.sell.amount.0,
@@ -125,6 +138,9 @@ impl KyberSwapSolutionGenerator {
                 );
                 continue;
             }
+
+            // Update amount_out with slippage
+            route.amount_out = route_amount_out.to_string();
 
             // Create solution for this order
             match self
@@ -316,11 +332,11 @@ impl KyberSwapSolutionGenerator {
             })],
             inputs: vec![eth::Asset {
                 token: order.sell.token,
-                amount: eth::TokenAmount(eth::U256::from_str(&route.amount_in)?),
+                amount: eth::TokenAmount(eth::U256::from_dec_str(&route.amount_in)?),
             }],
             outputs: vec![eth::Asset {
                 token: order.buy.token,
-                amount: eth::TokenAmount(eth::U256::from_str(&route.amount_out)?),
+                amount: eth::TokenAmount(eth::U256::from_dec_str(&route.amount_out)?),
             }],
             internalize: false,
         });
@@ -336,7 +352,9 @@ impl KyberSwapSolutionGenerator {
             self.solver.clone(),
             self.weth,
             Some(eth::Gas(
-                eth::U256::from_str(&route.gas).unwrap_or_default().into(),
+                eth::U256::from_dec_str(&route.gas)
+                    .unwrap_or_default()
+                    .into(),
             )),
             crate::infra::config::file::FeeHandler::Driver,
             &HashSet::new(), // surplus_capturing_jit_order_owners
@@ -355,7 +373,6 @@ impl KyberSwapSolutionGenerator {
         route: &shared::kyberswap_api::RouteSummary,
         order: &order::Order,
     ) -> Result<HashMap<TokenAddress, eth::U256>> {
-
         let amount_in = eth::U256::from_dec_str(&route.amount_in)?;
         let amount_out = eth::U256::from_dec_str(&route.amount_out)?;
 
