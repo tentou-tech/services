@@ -8,6 +8,8 @@ use tower_http::trace::TraceLayer;
 pub mod api;
 mod run;
 
+pub mod infra;
+
 pub use self::run::{run, start};
 
 pub fn app(

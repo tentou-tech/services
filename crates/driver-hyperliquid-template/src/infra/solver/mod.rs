@@ -1,0 +1,376 @@
+use {
+    crate::{ 
+        infra::{
+            self,
+        },
+    },
+    driver::{
+        domain::{
+            competition::{
+                auction::{self, Auction},
+                bad_tokens,
+                order,
+                solution::{self, Solution},
+            },
+            eth, 
+            liquidity,
+        }, 
+        util, 
+        infra::{
+            blockchain::Ethereum,
+            config::file::FeeHandler,
+            persistence::{Persistence, S3},
+            solver::Config,
+        },
+        
+    },
+    anyhow::Result,
+    derive_more::{From, Into},
+    num::BigRational,
+    observe::tracing::tracing_headers,
+    reqwest::header::HeaderName,
+    std::{
+        collections::HashMap,
+        time::{Duration, Instant},
+    },
+    thiserror::Error,
+    tracing::{Instrument, instrument},
+};
+
+pub mod dto;
+
+// TODO At some point I should be checking that the names are unique, I don't
+// think I'm doing that.
+/// The solver name. The user can configure this to be anything that they like.
+/// The name uniquely identifies each solver in case there's more than one of
+/// them.
+#[derive(Debug, Clone, From, Into)]
+pub struct Name(pub String);
+
+impl Name {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Slippage {
+    pub relative: BigRational,
+    pub absolute: Option<eth::Ether>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Liquidity {
+    /// Liquidity should be fetched and included in the auction sent to this
+    /// solver.
+    Fetch,
+    /// The solver does not need liquidity, so fetching can be skipped for this
+    /// solver.
+    Skip,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Timeouts {
+    /// Maximum time allocated for http request/reponse to propagate through
+    /// network.
+    pub http_delay: chrono::Duration,
+    /// Maximum time allocated for solver engines to return the solutions back
+    /// to the driver, in percentage of total driver deadline.
+    pub solving_share_of_deadline: util::Percent,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ManageNativeToken {
+    /// If true wraps ETH address
+    pub wrap_address: bool,
+    /// If true inserts unwrap interactions
+    pub insert_unwraps: bool,
+}
+
+/// Solvers are controlled by the driver. Their job is to search for solutions
+/// to auctions. They do this in various ways, often by analyzing different AMMs
+/// on the Ethereum blockchain.
+#[derive(Debug, Clone)]
+pub struct Solver {
+    client: reqwest::Client,
+    config: Config,
+    eth: Ethereum,
+    persistence: Persistence,
+}
+
+impl Solver {
+    pub async fn try_new(config: Config, eth: Ethereum) -> Result<Self> {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::CONTENT_TYPE,
+            "application/json".parse().unwrap(),
+        );
+        headers.insert(reqwest::header::ACCEPT, "application/json".parse().unwrap());
+
+        for (key, val) in config.request_headers.iter() {
+            let header_name = HeaderName::try_from(key)?;
+            headers.insert(header_name, val.parse()?);
+        }
+
+        let persistence = Persistence::build(&config).await;
+
+        Ok(Self {
+            client: reqwest::ClientBuilder::new()
+                .default_headers(headers)
+                .build()?,
+            config,
+            eth,
+            persistence,
+        })
+    }
+
+    pub fn bad_token_detection(&self) -> &BadTokenDetection {
+        &self.config.bad_token_detection
+    }
+
+    pub fn persistence(&self) -> Persistence {
+        self.persistence.clone()
+    }
+
+    pub fn name(&self) -> &Name {
+        &self.config.name
+    }
+
+    /// The slippage configuration of this solver.
+    pub fn slippage(&self) -> &Slippage {
+        &self.config.slippage
+    }
+
+    /// The liquidity configuration of this solver
+    pub fn liquidity(&self) -> Liquidity {
+        self.config.liquidity
+    }
+
+    /// The blockchain address of this solver.
+    pub fn address(&self) -> eth::Address {
+        self.config.account.address().into()
+    }
+
+    /// The account which should be used to sign settlements for this solver.
+    pub fn account(&self) -> ethcontract::Account {
+        self.config.account.clone()
+    }
+
+    /// Timeout configuration for this solver.
+    pub fn timeouts(&self) -> Timeouts {
+        self.config.timeouts
+    }
+
+    /// Use limit orders for quoting instead of market orders
+    pub fn quote_using_limit_orders(&self) -> bool {
+        self.config.quote_using_limit_orders
+    }
+
+    pub fn solution_merging(&self) -> SolutionMerging {
+        self.config.merge_solutions
+    }
+
+    pub fn solver_native_token(&self) -> ManageNativeToken {
+        self.config.solver_native_token
+    }
+
+    pub fn quote_tx_origin(&self) -> &Option<eth::Address> {
+        &self.config.quote_tx_origin
+    }
+
+    pub fn settle_queue_size(&self) -> usize {
+        self.config.settle_queue_size
+    }
+
+    pub fn fetch_liquidity_at_block(&self) -> driver::infra::liquidity::AtBlock {
+        self.config.fetch_liquidity_at_block.clone()
+    }
+
+    /// Make a POST request instructing the solver to solve an auction.
+    /// Allocates at most `timeout` time for the solving.
+    #[instrument(name = "solver_engine", skip_all)]
+    pub async fn solve(
+        &self,
+        auction: &Auction,
+        liquidity: &[liquidity::Liquidity],
+    ) -> Result<Vec<Solution>, Error> {
+        let start = Instant::now();
+
+        let flashloan_hints = self.assemble_flashloan_hints(auction);
+        let weth = self.eth.contracts().weth_address();
+        let auction_dto = dto::auction::new(
+            auction,
+            liquidity,
+            weth,
+            self.config.fee_handler,
+            self.config.solver_native_token,
+            &flashloan_hints,
+            auction.deadline(self.timeouts()).solvers(),
+        );
+
+        let body = {
+            // pre-allocate a big enough buffer to avoid re-allocating memory
+            // as the request gets serialized
+            const BYTES_PER_ORDER: usize = 1_300;
+            let mut buffer = Vec::with_capacity(auction.orders().len() * BYTES_PER_ORDER);
+            serde_json::to_writer(&mut buffer, &auction_dto).unwrap();
+            String::from_utf8(buffer).expect("serde_json only writes valid utf8")
+        };
+
+        if let Some(id) = auction.id() {
+            // Only auctions with IDs are real auctions (/quote requests don't have an ID).
+            // Only for those it makes sense to archive them and measure the execution time.
+            self.persistence.archive_auction(id, &auction_dto);
+            ::observe::metrics::metrics().measure_auction_overhead(
+                start,
+                "driver",
+                "serialize_request",
+            );
+        }
+
+        let url = shared::url::join(&self.config.endpoint, "solve");
+        super::observe::solver_request(&url, &body);
+        let timeout = match auction.deadline(self.timeouts()).solvers().remaining() {
+            Ok(timeout) => timeout,
+            Err(_) => {
+                tracing::warn!("auction deadline exceeded before sending request to solver");
+                return Ok(Default::default());
+            }
+        };
+        let mut req = self
+            .client
+            .post(url.clone())
+            .body(body)
+            .headers(tracing_headers())
+            .timeout(timeout);
+        if let Some(id) = observe::distributed_tracing::request_id::from_current_span() {
+            req = req.header("X-REQUEST-ID", id);
+        }
+        super::observe::sending_solve_request(self.config.name.as_str(), timeout);
+        let started_at = std::time::Instant::now();
+        let res = util::http::send(self.config.response_size_limit_max_bytes, req).await;
+        super::observe::solver_response(
+            &url,
+            res.as_deref(),
+            self.config.name.as_str(),
+            started_at.elapsed(),
+        );
+        let res = res?;
+        let res: solvers_dto::solution::Solutions =
+            serde_json::from_str(&res).inspect_err(|err| {
+                tracing::warn!(res, ?err, "failed to parse solver response");
+                self.notify(
+                    auction.id(),
+                    None,
+                    notify::Kind::DeserializationError(format!("Request format invalid: {err}")),
+                );
+            })?;
+        let solutions = dto::Solutions::from(res).into_domain(
+            auction,
+            liquidity,
+            weth,
+            self.clone(),
+            &flashloan_hints,
+        )?;
+
+        super::observe::solutions(&solutions, auction.surplus_capturing_jit_order_owners());
+        Ok(solutions)
+    }
+
+    fn assemble_flashloan_hints(&self, auction: &Auction) -> HashMap<order::Uid, eth::Flashloan> {
+        if !self.config.flashloans_enabled {
+            return Default::default();
+        }
+
+        auction
+            .orders()
+            .iter()
+            .flat_map(|order| {
+                let hint = order.app_data.flashloan()?;
+                let flashloan = eth::Flashloan {
+                    liquidity_provider: hint.liquidity_provider.into(),
+                    protocol_adapter: hint.protocol_adapter.into(),
+                    receiver: hint.receiver.into(),
+                    token: hint.token.into(),
+                    amount: hint.amount.into(),
+                };
+                Some((order.uid, flashloan))
+            })
+            .collect()
+    }
+
+    /// Make a fire and forget POST request to notify the solver about an event.
+    pub fn notify(
+        &self,
+        auction_id: Option<auction::Id>,
+        solution_id: Option<solution::Id>,
+        kind: notify::Kind,
+    ) {
+        let body =
+            serde_json::to_string(&dto::notification::new(auction_id, solution_id, kind)).unwrap();
+        let url = shared::url::join(&self.config.endpoint, "notify");
+        super::observe::solver_request(&url, &body);
+        let mut req = self.client.post(url).body(body).headers(tracing_headers());
+        if let Some(id) = observe::distributed_tracing::request_id::from_current_span() {
+            req = req.header("X-REQUEST-ID", id);
+        }
+        let response_size = self.config.response_size_limit_max_bytes;
+        let future = async move {
+            if let Err(error) = util::http::send(response_size, req).await {
+                tracing::warn!(?error, "failed to notify solver");
+            }
+        };
+        tokio::task::spawn(future.in_current_span());
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+}
+
+/// Controls whether or not the driver is allowed to merge multiple solutions
+/// of the same solver to produce an overall better solution.
+#[derive(Debug, Clone, Copy)]
+pub enum SolutionMerging {
+    Allowed {
+        max_orders_per_merged_solution: usize,
+    },
+    Forbidden,
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("HTTP error: {0:?}")]
+    Http(#[from] util::http::Error),
+    #[error("JSON deserialization error: {0:?}")]
+    Deserialize(#[from] serde_json::Error),
+    #[error("solver dto error: {0}")]
+    Dto(#[from] dto::Error),
+}
+
+impl Error {
+    pub fn is_timeout(&self) -> bool {
+        match self {
+            Self::Http(util::http::Error::Response(err)) => err.is_timeout(),
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BadTokenDetection {
+    /// Tokens that are explicitly allow- or deny-listed.
+    pub tokens_supported: HashMap<eth::TokenAddress, bad_tokens::Quality>,
+    pub enable_simulation_strategy: bool,
+    pub enable_metrics_strategy: bool,
+    pub metrics_strategy_failure_ratio: f64,
+    pub metrics_strategy_required_measurements: u32,
+    pub metrics_strategy_log_only: bool,
+    pub metrics_strategy_token_freeze_time: Duration,
+}
