@@ -144,6 +144,11 @@ impl Fetcher {
             })
             .collect();
 
+        tracing::info!(
+            "Fetching liquidity for {:?}",
+            pairs
+        );
+
         let block = match block {
             infra::liquidity::AtBlock::Recent => recent_block_cache::Block::Recent,
             infra::liquidity::AtBlock::Finalized => recent_block_cache::Block::Finalized,
@@ -153,6 +158,11 @@ impl Fetcher {
             }
         };
         let liquidity = self.inner.get_liquidity(pairs, block).await?;
+
+        tracing::info!(
+            "Fetched liquidity: {:?}",
+            liquidity
+        );
 
         let liquidity = liquidity
             .into_iter()

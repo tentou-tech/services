@@ -17,6 +17,13 @@ impl PairProvider {
             buffer[20..40].copy_from_slice(&token1);
             keccak256(&buffer)
         };
+        tracing::info!(
+            "Salt: {:?} - init code digest: {:?} - factory: {:?} - pair: {:?}",
+            salt,
+            self.init_code_digest,
+            self.factory,
+            pair
+        );
         create2_target_address(self.factory, &salt, &self.init_code_digest)
     }
 }

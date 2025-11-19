@@ -31,10 +31,25 @@ impl LiquidityCollecting for LiquidityCollector {
         at_block: Block,
     ) -> Result<Vec<Liquidity>> {
         let pairs = self.base_tokens.relevant_pairs(pairs.into_iter());
+        tracing::info!("getting liquidity for {:?}", pairs);
+
+        // ADD THIS LOGGING FOR LIQUIDITY SOURCES
+        tracing::info!(
+            "Liquidity sources count: {}",
+            self.liquidity_sources.len()
+        );
+        
         let futures = self
             .liquidity_sources
             .iter()
             .map(|source| source.get_liquidity(pairs.clone(), at_block));
+
+        // ADD THIS LOGGING FOR FUTURES
+        tracing::info!(
+            "Futures: {:?}",
+            futures.len()
+        );
+
         let amms: Vec<_> = futures::future::join_all(futures)
             .await
             .into_iter()

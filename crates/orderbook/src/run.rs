@@ -174,7 +174,10 @@ pub async fn run(args: Arguments) {
     verify_deployed_contract_constants(&settlement_contract, chain_id)
         .await
         .expect("Deployed contract constants don't match the ones in this binary");
+    tracing::info!("settlement_contract: {:?}", settlement_contract.address());
+    tracing::info!("chain_id: {:?}", chain_id);
     let domain_separator = DomainSeparator::new(chain_id, settlement_contract.address());
+    tracing::info!("domain_separator: {:?}", domain_separator);
     let postgres_write =
         Postgres::try_new(args.db_write_url.as_str()).expect("failed to create database");
 

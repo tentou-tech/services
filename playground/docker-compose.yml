@@ -1,0 +1,185 @@
+services:
+  # Database for storing orders and settlements
+  db:
+    image: postgres:15
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-cow_protocol}
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Database migrations
+  db-migrations:
+    build:
+      context: ../
+      target: migrations
+      dockerfile: ./playground/Dockerfile
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      - FLYWAY_URL=jdbc:postgresql://db:5432/${POSTGRES_DB:-cow_protocol}?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Orderbook API service - Direct connection to public RPC
+  orderbook:
+    build:
+      context: ../
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command: ["cargo", "watch", "-x", "run --bin orderbook"]
+    environment:
+      - NODE_URL=${ETH_RPC_URL}
+      - DB_WRITE_URL=postgres://db:5432/${POSTGRES_DB:-cow_protocol}?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+      - DB_READ_URL=postgres://db:5432/${POSTGRES_DB:-cow_protocol}?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+      - ACCOUNT_BALANCES_SIMULATION=true
+      - ACCOUNT_BALANCES_SIMULATOR=Web3
+      - SIMULATION_NODE_URL=${ETH_RPC_URL}
+      - EIP1271_SKIP_CREATION_VALIDATION=true
+      - ENABLE_EIP1271_ORDERS=true
+      - PRICE_ESTIMATORS=None
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
+      - DRIVERS=baseline|http://driver/baseline
+      - BIND_ADDRESS=0.0.0.0:80
+      - CHAIN_ID=${CHAIN_ID}
+      - BASELINE_SOURCES=None
+      - RUST_BACKTRACE=1
+      - TOML_TRACE_ERROR=1
+    volumes:
+      - ../:/src
+    depends_on:
+      db-migrations:
+        condition: service_completed_successfully
+    ports:
+      - "8080:80"  # Orderbook API
+      - "9586:9586"  # Metrics
+
+  # Autopilot service - Direct connection to public RPC
+  autopilot:
+    build:
+      context: ../
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command: ["cargo", "watch", "-x", "run --bin autopilot"]
+    environment:
+      - DB_WRITE_URL=postgres://db:5432/${POSTGRES_DB:-cow_protocol}?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+      - DB_READ_URL=postgres://db:5432/${POSTGRES_DB:-cow_protocol}?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+      - LOG_FILTER=warn,autopilot=info,shared=info,shared::price_estimation=info
+      - NODE_URL=${ETH_RPC_URL}
+      - SIMULATION_NODE_URL=${ETH_RPC_URL}
+      - SETTLE_INTERVAL=${SETTLE_INTERVAL:-15s}
+      - GAS_ESTIMATORS=Native,Web3
+      - PRICE_ESTIMATORS=None
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
+      - BLOCK_STREAM_POLL_INTERVAL=1s
+      - NATIVE_PRICE_CACHE_MAX_UPDATE_SIZE=100
+      - NATIVE_PRICE_CACHE_MAX_AGE=20m
+      - SOLVER_TIME_LIMIT=${SOLVER_TIME_LIMIT:-5}
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
+      - DRIVERS=baseline|http://driver/baseline|${SOLVER_ACCOUNT}
+      - SKIP_EVENT_SYNC=true
+      - BASELINE_SOURCES=None
+      - RUST_BACKTRACE=1
+      - TOML_TRACE_ERROR=1
+      - ETHFLOW_CONTRACTS
+      - ETHFLOW_INDEXING_START
+      - ETHRPC_MAX_BATCH_SIZE=20
+    volumes:
+      - ../:/src
+    depends_on:
+      orderbook:
+        condition: service_started
+    ports:
+      - "9589:9589"  # Metrics
+
+  # Driver service - Direct connection to public RPC
+  driver:
+    build:
+      context: ../
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command:
+      [
+        "cargo",
+        "watch",
+        "-x",
+        "run --bin driver -- --config configs/${ENV:-local}/driver.toml",
+      ]
+    environment:
+      - ETHRPC=${ETH_RPC_URL}
+      - ADDR=0.0.0.0:80
+      - RUST_BACKTRACE=1
+      - TOML_TRACE_ERROR=1
+    volumes:
+      - ../:/src
+    ports:
+      - "9000:80"  # Driver API & metrics
+
+  # Baseline solver engine
+  baseline:
+    build:
+      context: ../
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command:
+      [
+        "cargo",
+        "watch",
+        "-x",
+        "run --bin solvers -- baseline --config configs/${ENV:-local}/baseline.toml",
+      ]
+    environment:
+      - ADDR=0.0.0.0:80
+      - LOG=solvers=trace,shared=trace
+      - RUST_BACKTRACE=1
+      - TOML_TRACE_ERROR=1
+    volumes:
+      - ../:/src
+    ports:
+      - "9001:80"  # Solver API & metrics
+
+  # CoW Explorer - Direct connection to public RPC
+  # explorer:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.explorer
+  #     args:
+  #       - CHAIN=${CHAIN_ID}
+  #       - ETH_RPC_URL=${ETH_RPC_URL}
+  #   restart: always
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "8001:80"  # CoW Explorer
+  #   depends_on:
+  #     - orderbook
+
+volumes:
+  postgres_data:

@@ -580,6 +580,12 @@ impl OrderValidating for OrderValidator {
         let app_data = self.validate_app_data(&order.app_data, &full_app_data_override)?;
         let app_data_signer = app_data.inner.protocol.signer;
 
+        tracing::info!("app_data_signer: {:?}", app_data_signer);
+        tracing::info!("domain_separator: {:?}", domain_separator);
+        tracing::info!("order: {:?}", order);
+        tracing::info!("settlement_contract: {:?}", settlement_contract);
+        tracing::info!("full_app_data_override: {:?}", full_app_data_override);
+
         let owner = order.verify_owner(domain_separator, app_data_signer)?;
         tracing::debug!(?owner, "recovered owner from order and signature");
         let signing_scheme = order.signature.scheme();

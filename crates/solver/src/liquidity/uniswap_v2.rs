@@ -98,9 +98,22 @@ impl LiquidityCollecting for UniswapLikeLiquidity {
         pairs: HashSet<TokenPair>,
         at_block: Block,
     ) -> Result<Vec<Liquidity>> {
+        // ADD THIS LOGGING
+        tracing::info!(
+            "Fetching Uniswap V2 liquidity for {} pairs using router: {:?}",
+            pairs.len(),
+            self.inner.router
+        );
+
         let mut tokens = HashSet::new();
         let mut result = Vec::new();
         for pool in self.pool_fetcher.fetch(pairs, at_block).await? {
+            // ADD THIS LOGGING
+            tracing::info!(
+                "Found Uniswap V2 pool: {:?}",
+                pool
+            );
+
             tokens.insert(pool.tokens.get().0);
             tokens.insert(pool.tokens.get().1);
 
@@ -112,6 +125,14 @@ impl LiquidityCollecting for UniswapLikeLiquidity {
                 settlement_handling: self.inner.clone(),
             }))
         }
+
+        // ADD THIS LOGGING
+        tracing::info!(
+            "Found {} Uniswap V2 pools with router: {:?}",
+            result.len(),
+            self.inner.router
+        );
+
         self.cache_allowances(tokens).await?;
         Ok(result)
     }

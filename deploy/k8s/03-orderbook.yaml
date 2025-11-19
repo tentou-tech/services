@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orderbook-service
+  namespace: cow-protocol
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      name: api
+    - port: 9586
+      targetPort: 9586
+      name: metrics
+  selector:
+    app: orderbook
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orderbook
+  namespace: cow-protocol
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orderbook
+  template:
+    metadata:
+      labels:
+        app: orderbook
+    spec:
+      containers:
+        - name: orderbook
+          image: YOUR_REGISTRY/cow-protocol-orderbook:latest
+          command: ["cargo", "run", "--bin", "orderbook"]
+          ports:
+            - containerPort: 80
+              name: api
+            - containerPort: 9586
+              name: metrics
+          envFrom:
+            - configMapRef:
+                name: cow-protocol-config

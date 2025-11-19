@@ -24,6 +24,7 @@ pub enum Chain {
     Optimism = 10,
     Polygon = 137,
     Lens = 232,
+    HyperEvmTestnet = 998,
 }
 
 impl Chain {
@@ -49,6 +50,7 @@ impl Chain {
             Self::Optimism => "Optimism",
             Self::Polygon => "Polygon",
             Self::Lens => "Lens",
+            Self::HyperEvmTestnet => "Hyper EVM Testnet",
         }
     }
 
@@ -61,7 +63,8 @@ impl Chain {
             | Self::ArbitrumOne
             | Self::Base
             | Self::Bnb
-            | Self::Optimism => 10u128.pow(17).into(),
+            | Self::Optimism
+            | Self::HyperEvmTestnet => 10u128.pow(17).into(), // 0.1 native token
             Self::Gnosis | Self::Avalanche | Self::Lens => 10u128.pow(18).into(),
             Self::Polygon => 10u128.pow(20).into(),
             Self::Hardhat => {
@@ -85,6 +88,7 @@ impl Chain {
             Self::Optimism => Duration::from_millis(2_000),
             Self::Polygon => Duration::from_millis(2_000),
             Self::Lens => Duration::from_millis(2_000),
+            Self::HyperEvmTestnet => Duration::from_millis(1_000), // 1 second block time
         }
     }
 
@@ -114,6 +118,7 @@ impl TryFrom<u64> for Chain {
             x if x == Self::Optimism as u64 => Self::Optimism,
             x if x == Self::Polygon as u64 => Self::Polygon,
             x if x == Self::Lens as u64 => Self::Lens,
+            x if x == Self::HyperEvmTestnet as u64 => Self::HyperEvmTestnet,
             _ => Err(ChainIdNotSupported)?,
         };
         Ok(network)

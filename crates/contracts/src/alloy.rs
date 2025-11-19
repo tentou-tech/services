@@ -9,6 +9,8 @@ pub mod networks {
     pub const BNB: u64 = 56;
     pub const OPTIMISM: u64 = 10;
     pub const LENS: u64 = 232;
+    pub const HYPER_EVM: u64 = 999;
+    pub const HYPER_EVM_TESTNET: u64 = 998;
 }
 
 crate::bindings!(
@@ -434,6 +436,9 @@ crate::bindings!(
         // <https://polygonscan.com/tx/0x712ac56155a301fca4b7a761e232233f41a104865a74b1a59293835da355292a>
         POLYGON => address!("0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C"),
         // Not available on Lens
+        HYPER_EVM_TESTNET => address!("0xA028411927E2015A363014881a4404C636218fb1"),
+        // Hyper EVM use hyper-swap router
+        HYPER_EVM => address!("0x724412C00059bf7d6ee7d4a1d0D5cd4de3ea1C48"),
     }
 );
 crate::bindings!(
@@ -459,6 +464,8 @@ crate::bindings!(
         // <https://polygonscan.com/tx/0x66186e0cacd2f6b3ad2eae586bd331daafd0572eb80bf71be694181858198025>
         POLYGON => address!("0xedf6066a2b290C185783862C7F4776A2C8077AD1"),
         // Not available on Lens
+        HYPER_EVM_TESTNET => address!("0x85aA63EB2ab9BaAA74eAd7e7f82A571d74901853"),
+        HYPER_EVM => address!("0xb4a9C4e6Ea8E2191d2FA5B380452a634Fb21240A"),
     }
 );
 crate::bindings!(IUniswapLikeRouter);
@@ -477,6 +484,8 @@ crate::bindings!(
         POLYGON => address!("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
         LENS => address!("0x1eEA2B790Dc527c5a4cd3d4f3ae8A2DDB65B2af1"),
         // Not listed on Gnosis and Sepolia chains
+        HYPER_EVM_TESTNET => address!("0x7FEd8993828A61A5985F384Cee8bDD42177Aa263"),
+        HYPER_EVM => address!("0x03A918028f22D9E1473B7959C927AD7425A45C7C"),
     }
 );
 crate::bindings!(
@@ -492,6 +501,8 @@ crate::bindings!(
         BNB => address!("0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2"),
         LENS => address!("0x6ddD32cd941041D8b61df213B9f515A7D288Dc13"),
         // Not available on Gnosis Chain
+        HYPER_EVM_TESTNET => address!("0xD81F56576B1FF2f3Ef18e9Cc71Adaa42516fD990"),
+        HYPER_EVM => address!("0x6D99e7f6747AF2cDbB5164b6DD50e40D4fDe1e77"),
     }
 );
 crate::bindings!(
@@ -509,6 +520,8 @@ crate::bindings!(
         // not official
         LENS => address!( "0xc3A5b857Ba82a2586A45a8B59ECc3AA50Bc3D0e3"),
         // Not available on Gnosis Chain
+        HYPER_EVM_TESTNET => address!("0x22B0768972bB7f1F5ea7a8740BB8f94b32483826"),
+        HYPER_EVM => address!("0xB1c0fa0B789320044A6F623cFe5eBda9562602E3"),
     }
 );
 
@@ -527,6 +540,8 @@ crate::bindings!(
         OPTIMISM  => address!("0x60Bf78233f48eC42eE3F101b9a05eC7878728006"),
         POLYGON  => address!("0x60Bf78233f48eC42eE3F101b9a05eC7878728006"),
         LENS  => address!("0x60Bf78233f48eC42eE3F101b9a05eC7878728006"),
+        HYPER_EVM_TESTNET  => address!("0xe7287fbeb5e11cA97Dc32422C572847C94413c4f"),
+        HYPER_EVM  => address!("0x77FDB9625e8DD8Acca75F751b1c448CA9faae4e9"),
     }
 );
 
@@ -625,6 +640,8 @@ crate::bindings!(
         OPTIMISM => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 38854427),
         // <https://polygonscan.com/tx/0xe2a4d996de0d6a23108f701b37acba6c47ee34448bb51fec5c23f542a6f3ccc8>
         POLYGON => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 35701901),
+        HYPER_EVM_TESTNET => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 35687405),
+        HYPER_EVM => (address!("0x000000000022D473030F116dDEE9F6B43aC78BA3"), 22901),
     }
 );
 
@@ -653,6 +670,8 @@ pub mod support {
             LENS => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
             GNOSIS => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
             SEPOLIA => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
+            HYPER_EVM_TESTNET => address!("0x8262d639c38470F38d2eff15926F7071c28057Af"),
+            HYPER_EVM => address!("0x8262d639c38470f38d2eff15926f7071c28057af"),
         }
     );
     // Support contracts used for various order simulations.
@@ -669,6 +688,8 @@ pub mod support {
             LENS => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
             GNOSIS => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
             SEPOLIA => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
+            HYPER_EVM_TESTNET => address!("0x3e8C6De9510e7ECad902D005DE3Ab52f35cF4f1b"),
+            HYPER_EVM => address!("0x3e8c6de9510e7ecad902d005de3ab52f35cf4f1b"),
         }
     );
 }
