@@ -15,6 +15,7 @@ use {
     },
     anyhow::{Context, Result},
     ethcontract::{H160, U256},
+    num::{BigRational, ToPrimitive},
     shared::kyberswap_api::{
         DefaultKyberSwapApi, KyberSwapApi, KyberSwapApiError, KyberSwapConfig,
     },
@@ -31,6 +32,18 @@ pub struct KyberSwapSolutionGenerator {
 }
 
 impl KyberSwapSolutionGenerator {
+    /// Convert slippage from BigRational to basis points (BPS).
+    ///
+    /// Basis points represent the slippage as parts per 10,000.
+    /// For example: 0.5 (0.5%) = 50 BPS, 0.01 (1%) = 100 BPS
+    fn slippage_to_bps(slippage: &BigRational) -> u32 {
+        // Multiply by 10,000 to convert to basis points
+        let bps = slippage * BigRational::from_integer(100.into());
+
+        // Convert to u32, defaulting to 50 BPS (0.5%) if conversion fails
+        bps.to_u32().unwrap_or(50)
+    }
+
     pub fn new(eth: &Ethereum, config: &KyberSwap, solver: Solver) -> Result<Self> {
         // let http_client_factory = &HttpClientFactory::new(&shared::http_client::Arguments {
         //     http_timeout: config.http_timeout,
@@ -108,14 +121,18 @@ impl KyberSwapSolutionGenerator {
 
             // Validate route output matches order requirements
             // Update amount_out with slippage
-            let slippage = 50u32; // 0.5% slippage
+            let slippage_bps = Self::slippage_to_bps(&self.solver.slippage().relative);
+            tracing::info!(
+                slippage_bps = ?slippage_bps,
+                "solve::Slippage in basis points"
+            );
             tracing::info!(
                 route_amount_out = ?route.amount_out,
                 "solve::Original route amount out"
             );
             let route_amount_out = eth::U256::from_dec_str(&route.amount_out)
                 .unwrap_or_default()
-                .saturating_mul(U256::from(10_000 - slippage))
+                .saturating_mul(U256::from(10_000 - slippage_bps))
                 .checked_div(U256::from(10_000))
                 .unwrap_or_default();
 
@@ -144,7 +161,7 @@ impl KyberSwapSolutionGenerator {
 
             // Create solution for this order
             match self
-                .create_solution(auction, order, &route, solution_id_counter)
+                .create_solution(auction, order, &route, solution_id_counter, slippage_bps)
                 .await
             {
                 Ok(solution) => {
@@ -231,6 +248,7 @@ impl KyberSwapSolutionGenerator {
         order: &order::Order,
         route: &shared::kyberswap_api::RouteSummary,
         solution_id: u64,
+        slippage_bps: u32,
     ) -> Result<solution::Solution> {
         use {
             crate::domain::competition::solution::{
@@ -245,7 +263,7 @@ impl KyberSwapSolutionGenerator {
             route_summary: route.clone(),
             sender: self.settlement_contract,
             recipient: self.settlement_contract,
-            slippage: 50, // 0.5% slippage
+            slippage: slippage_bps,
             deadline: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
