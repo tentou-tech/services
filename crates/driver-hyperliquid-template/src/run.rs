@@ -10,7 +10,7 @@ use {
         self,
         blockchain::{self, Ethereum},
         cli::{self,Args}, 
-        config, Solver
+        config, liquidity, tokens, Solver
     },
     clap::Parser,
     std::{net::SocketAddr, sync::Arc, time::Duration},
@@ -48,6 +48,9 @@ async fn run_with(args: Args, addr_sender: Option<oneshot::Sender<SocketAddr>>) 
     let eth = ethereum(&config, ethrpc).await;
     let api = Api{
         solvers: solvers(&config, &eth).await,
+        liquidity: liquidity(&config, &eth).await,
+        tokens: tokens::Fetcher::new(&eth),
+        eth,
         addr: args.addr,
         addr_sender,
     }.serve(async{
@@ -121,4 +124,10 @@ async fn solvers(config: &config::Config, eth: &Ethereum) -> Vec<Solver> {
             .collect::<Vec<_>>(),
     )
     .await
+}
+
+async fn liquidity(config: &config::Config, eth: &Ethereum) -> liquidity::Fetcher {
+    liquidity::Fetcher::try_new(eth, &config.liquidity)
+        .await
+        .expect("initialize liquidity fetcher")
 }

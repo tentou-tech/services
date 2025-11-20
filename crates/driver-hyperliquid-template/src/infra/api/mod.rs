@@ -1,7 +1,10 @@
 use {
     driver::{
         infra::{
+            blockchain::Ethereum,
+            liquidity,
             solver::Solver,
+            tokens,
         },
     },
     futures::Future,
@@ -16,6 +19,9 @@ const REQUEST_BODY_LIMIT: usize = 10 * 1024 * 1024;
 
 pub struct Api {
     pub solvers: Vec<Solver>,
+    pub eth: Ethereum,
+    pub liquidity: liquidity::Fetcher,
+    pub tokens: tokens::Fetcher,
     pub addr: SocketAddr,
     /// If this channel is specified, the bound address will be sent to it. This
     /// allows the driver to bind to 0.0.0.0:0 during testing.
@@ -26,14 +32,28 @@ pub struct Api {
 struct State(Arc<Inner>);
 
 impl State {
+    fn eth(&self) -> &Ethereum {
+        &self.0.eth
+    }
+
     fn solver(&self) -> &Solver {
-        // This will be replaced by a middleware
         &self.0.solver
+    }
+
+    fn liquidity(&self) -> &liquidity::Fetcher {
+        &self.0.liquidity
+    }
+
+    fn tokens(&self) -> &tokens::Fetcher {
+        &self.0.tokens
     }
 }
 
 struct Inner {
+    eth: Ethereum,
     solver: Solver,
+    liquidity: liquidity::Fetcher,
+    tokens: tokens::Fetcher,
 }
 
 impl Api {
@@ -67,7 +87,12 @@ impl Api {
             let router = routes::settle(router);
             let router = routes::notify(router);
 
-            let router = router.with_state(State(Arc::new(Inner{solver: solver.clone()})));
+            let router = router.with_state(State(Arc::new(Inner{
+                eth: self.eth.clone(),
+                solver: solver.clone(),
+                liquidity: self.liquidity.clone(),
+                tokens: self.tokens.clone(),
+            })));
             let path = format!("/{name}");
             app = app.nest(&path, router);
         }

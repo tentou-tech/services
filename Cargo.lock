@@ -2657,6 +2657,7 @@ dependencies = [
  "observe",
  "reqwest 0.11.27",
  "serde",
+ "serde_json",
  "serde_with",
  "solvers-dto",
  "thiserror 1.0.61",
@@ -2665,6 +2666,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "url",
  "vergen",
  "web3",
 ]
