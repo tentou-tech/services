@@ -85,12 +85,15 @@ async fn fake_solve(
     liquidity: &[driver::domain::liquidity::Liquidity],
 ) -> Result<Vec<driver::domain::competition::Solution>, quote::Error> {
     use driver::infra::solver::dto;
-    use solvers_dto::solution::{Solutions, Solution, Trade, Fulfillment, OrderUid};
+    use solvers_dto::solution::{
+        Solutions, Solution, Trade, Fulfillment, OrderUid, Interaction, LiquidityInteraction,
+    };
     use std::collections::HashMap;
     use web3::types::{H160, U256};
 
     let mut trades = Vec::new();
     let mut prices = HashMap::new();
+    let mut interactions = Vec::new();
 
     for order in auction.orders() {
         // Determine executed amount based on partial fill availability
@@ -127,6 +130,18 @@ async fn fake_solve(
         let price = U256::from_dec_str("1000000000000000000").unwrap();
         prices.insert(sell_token, price);
         prices.insert(buy_token, price);
+
+        // Create a liquidity interaction for the swap
+        // We use the fake liquidity ID "0" which corresponds to the one created in get_fake_liquidity
+        let liquidity_interaction = LiquidityInteraction {
+            internalize: false,
+            id: "0".to_string(),
+            input_token: sell_token,
+            output_token: buy_token,
+            input_amount: executed_amount,
+            output_amount: executed_amount, // 1:1 price
+        };
+        interactions.push(Interaction::Liquidity(liquidity_interaction));
     }
 
     let solution = Solution {
@@ -134,7 +149,7 @@ async fn fake_solve(
         prices,
         trades,
         pre_interactions: vec![],
-        interactions: vec![],
+        interactions,
         post_interactions: vec![],
         gas: None,
         flashloans: None,
