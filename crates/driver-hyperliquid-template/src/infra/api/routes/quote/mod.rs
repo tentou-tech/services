@@ -138,8 +138,11 @@ async fn fake_solve(
         // Encode the "exchange" function call for the Vault contract
         // Function signature: exchange(bytes,address,uint256,address,uint256,uint32,uint256,bytes[])
         // We use a dummy Vault address and dummy signatures for now.
-        let vault_address = H160([1; 20]); // Placeholder Vault address
-        
+        // set vault address = '0xdf2160bf40869b75fb9634ddb51779719937a450'
+
+        // vault address for hyperliquid testnet
+        let vault_address = "0xdf2160bf40869b75fb9634ddb51779719937a450".parse::<H160>().unwrap();
+
         // Construct the function selector and encode arguments manually using web3::ethabi
         // Since we don't have the full contract binding, we use raw encoding.
         // exchange signature: 0x...
@@ -254,103 +257,6 @@ async fn fake_solve(
     })?;
 
     Ok(domain_solutions)
-}
-
-async fn custom_solve(
-    solver: &driver::infra::solver::Solver,
-    eth: &driver::infra::Ethereum,
-    auction: &driver::domain::competition::Auction,
-    liquidity: &[driver::domain::liquidity::Liquidity],
-) -> Result<Vec<driver::domain::competition::Solution>, driver::infra::solver::Error> {
-    use driver::{
-        infra::{solver::dto, observe},
-        util,
-        domain::time::Remaining,
-    };
-    // use observe::tracing::tracing_headers; // Commented out to avoid import error for now
-    use std::time::Instant;
-    use tracing::Instrument;
-
-    let start = Instant::now();
-
-    let flashloan_hints = solver.assemble_flashloan_hints(auction);
-    let weth = eth.contracts().weth_address();
-    let auction_dto = dto::auction::new(
-        auction,
-        liquidity,
-        weth,
-        solver.config().fee_handler,
-        solver.config().solver_native_token,
-        &flashloan_hints,
-        auction.deadline(solver.timeouts()).solvers(),
-    );
-
-    let body = {
-        const BYTES_PER_ORDER: usize = 1_300;
-        let mut buffer = Vec::with_capacity(auction.orders().len() * BYTES_PER_ORDER);
-        serde_json::to_writer(&mut buffer, &auction_dto)?;
-        String::from_utf8(buffer).expect("serde_json only writes valid utf8")
-    };
-
-    if let Some(id) = auction.id() {
-        solver.persistence().archive_auction(id, &auction_dto);
-        // observe::metrics::metrics().measure_auction_overhead( // Metrics might be private
-        //     start,
-        //     "driver",
-        //     "serialize_request",
-        // );
-    }
-
-    let url = solver.config().endpoint.join("solve").expect("valid url");
-    observe::solver_request(&url, &body);
-    let timeout = match auction.deadline(solver.timeouts()).solvers().remaining() {
-        Ok(timeout) => timeout,
-        Err(_) => {
-            tracing::warn!("auction deadline exceeded before sending request to solver");
-            return Ok(Default::default());
-        }
-    };
-    
-    let mut req = solver.client()
-        .post(url.clone())
-        .body(body)
-        // .headers(tracing_headers()) // Commented out
-        .timeout(timeout);
-        
-    // if let Some(id) = observe::distributed_tracing::request_id::from_current_span() {
-    //     req = req.header("X-REQUEST-ID", id);
-    // }
-    
-    observe::sending_solve_request(solver.name().as_str(), timeout);
-    let started_at = std::time::Instant::now();
-    let res = util::http::send(solver.config().response_size_limit_max_bytes, req).await;
-    observe::solver_response(
-        &url,
-        res.as_deref(),
-        solver.name().as_str(),
-        started_at.elapsed(),
-    );
-    let res = res?;
-    let res: solvers_dto::solution::Solutions =
-        serde_json::from_str(&res).inspect_err(|err| {
-            tracing::warn!(res, ?err, "failed to parse solver response");
-            solver.notify(
-                auction.id(),
-                None,
-                driver::infra::notify::Kind::DeserializationError(format!("Request format invalid: {err}")),
-            );
-        })?;
-        
-    let solutions = dto::Solutions::from(res).into_domain(
-        auction,
-        liquidity,
-        weth,
-        solver.clone(),
-        &flashloan_hints,
-    )?;
-
-    observe::solutions(&solutions, auction.surplus_capturing_jit_order_owners());
-    Ok(solutions)
 }
 
 fn get_fake_liquidity(
