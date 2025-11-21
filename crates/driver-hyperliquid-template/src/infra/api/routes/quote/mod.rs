@@ -93,7 +93,7 @@ async fn fake_solve(
 
     let mut trades = Vec::new();
     let mut prices = HashMap::new();
-    let mut interactions = Vec::new();
+
 
     for order in auction.orders() {
         // Determine executed amount based on partial fill availability
@@ -130,23 +130,103 @@ async fn fake_solve(
         let price = U256::from_dec_str("1000000000000000000").unwrap();
         prices.insert(sell_token, price);
         prices.insert(buy_token, price);
-
-        // Create a liquidity interaction for the swap
-        // We use the fake liquidity ID "0" which corresponds to the one created in get_fake_liquidity
-        let liquidity_interaction = LiquidityInteraction {
-            internalize: false,
-            id: "0".to_string(),
-            input_token: sell_token,
-            output_token: buy_token,
-            input_amount: executed_amount,
-            output_amount: executed_amount, // 1:1 price
+    }
+    
+    // Create interactions
+    let mut interactions: Vec<solvers_dto::solution::Interaction> = Vec::new();
+    for order in auction.orders() {
+        // Encode the "exchange" function call for the Vault contract
+        // Function signature: exchange(bytes,address,uint256,address,uint256,uint32,uint256,bytes[])
+        // We use a dummy Vault address and dummy signatures for now.
+        let vault_address = H160([1; 20]); // Placeholder Vault address
+        
+        // Construct the function selector and encode arguments manually using web3::ethabi
+        // Since we don't have the full contract binding, we use raw encoding.
+        // exchange signature: 0x...
+        
+        // Define the function interface
+        #[allow(deprecated)]
+        let function = web3::ethabi::Function {
+            name: "exchange".to_owned(),
+            inputs: vec![
+                web3::ethabi::Param { name: "orderUid".to_owned(), kind: web3::ethabi::ParamType::Bytes, internal_type: None },
+                web3::ethabi::Param { name: "tokenIn".to_owned(), kind: web3::ethabi::ParamType::Address, internal_type: None },
+                web3::ethabi::Param { name: "amountIn".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
+                web3::ethabi::Param { name: "tokenOut".to_owned(), kind: web3::ethabi::ParamType::Address, internal_type: None },
+                web3::ethabi::Param { name: "amountOut".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
+                web3::ethabi::Param { name: "validTo".to_owned(), kind: web3::ethabi::ParamType::Uint(32), internal_type: None },
+                web3::ethabi::Param { name: "nonce".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
+                web3::ethabi::Param { name: "signatures".to_owned(), kind: web3::ethabi::ParamType::Array(Box::new(web3::ethabi::ParamType::Bytes)), internal_type: None },
+            ],
+            outputs: vec![],
+            constant: None,
+            state_mutability: web3::ethabi::StateMutability::Payable,
         };
-        interactions.push(Interaction::Liquidity(liquidity_interaction));
+
+        let executed_amount = if order.side == driver::domain::competition::order::Side::Sell {
+            order.sell.amount.0
+        } else {
+            order.buy.amount.0
+        };
+
+        // Use 1:1 exchange rate for simplicity
+        let input_amount = executed_amount;
+        let output_amount = executed_amount;
+
+        let tokens = vec![
+            web3::ethabi::Token::Bytes(order.uid.0.0.to_vec()),
+            web3::ethabi::Token::Address(order.sell.token.0.0.into()),
+            web3::ethabi::Token::Uint(input_amount),
+            web3::ethabi::Token::Address(order.buy.token.0.0.into()),
+            web3::ethabi::Token::Uint(output_amount),
+            web3::ethabi::Token::Uint(U256::from(order.valid_to.0)),
+            web3::ethabi::Token::Uint(U256::zero()), // nonce
+            web3::ethabi::Token::Array(vec![]), // signatures
+        ];
+
+        let calldata = function.encode_input(&tokens).map_err(|e| {
+            tracing::error!(?e, "Failed to encode vault exchange calldata");
+            quote::Error::QuotingFailed(quote::QuotingFailed::NoSolutions)
+        })?;
+
+        let interaction = solvers_dto::solution::Interaction::Custom(solvers_dto::solution::CustomInteraction {
+            internalize: false,
+            target: vault_address,
+            value: U256::zero(),
+            calldata,
+            allowances: vec![solvers_dto::solution::Allowance {
+                token: order.sell.token.0.0.into(),
+                spender: vault_address,
+                amount: input_amount,
+            }],
+            inputs: vec![solvers_dto::solution::Asset {
+                token: order.sell.token.0.0.into(),
+                amount: input_amount,
+            }],
+            outputs: vec![solvers_dto::solution::Asset {
+                token: order.buy.token.0.0.into(),
+                amount: output_amount,
+            }],
+        });
+
+        interactions.push(interaction);
+
+        // Add a fulfillment trade so the solution is not considered empty
+        let executed_amount = match order.side {
+            driver::domain::competition::order::Side::Sell => input_amount,
+            driver::domain::competition::order::Side::Buy => output_amount,
+        };
+
+        trades.push(solvers_dto::solution::Trade::Fulfillment(solvers_dto::solution::Fulfillment {
+            order: solvers_dto::solution::OrderUid(order.uid.0.0),
+            executed_amount,
+            fee: None,
+        }));
     }
 
-    let solution = Solution {
+    let solution = solvers_dto::solution::Solution {
         id: 0,
-        prices,
+        prices: prices.clone(), // Use clone as prices is used later
         trades,
         pre_interactions: vec![],
         interactions,
@@ -155,7 +235,7 @@ async fn fake_solve(
         flashloans: None,
     };
 
-    let solutions_dto = Solutions {
+    let solutions_dto = solvers_dto::solution::Solutions {
         solutions: vec![solution],
     };
 
