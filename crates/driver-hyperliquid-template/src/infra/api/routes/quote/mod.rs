@@ -2,17 +2,17 @@ use {
     crate::infra::api::{State, error::{Error, Kind}},
     driver::{
         domain::{
-            competition::{self, auction},
+            competition::{self, order},
             eth,
             liquidity,
-            quote::{self, Quote, QuotingFailed},
+            quote as quote_domain,
         },
         infra::{
+            api::{self, error},
             observe,
             solver::Solver,
         },
-    },
-    tracing::Instrument,
+    },tracing::Instrument,
     std::collections::HashSet,
     anyhow::Result,
 };
@@ -53,11 +53,11 @@ async fn route(
 }
 
 async fn custom_quote(
-    order: &quote::Order,
+    order: &quote_domain::Order,
     eth: &driver::infra::Ethereum,
     solver: &Solver,
     tokens: &driver::infra::tokens::Fetcher,
-) -> Result<Quote, quote::Error> {
+) -> Result<quote_domain::Quote, quote_domain::Error> {
     let liquidity = get_fake_liquidity(order.tokens.sell(), order.tokens.buy());
 
     let auction = order.fake_auction(eth, tokens, solver.quote_using_limit_orders())
@@ -67,7 +67,7 @@ async fn custom_quote(
     let solutions = fake_solve(solver, eth, &auction, &liquidity).await?;
 
     // 5. Create a quote.
-    let quote = Quote::try_new(
+    let quote = quote_domain::Quote::try_new(
         eth,
         solutions
             .into_iter()
@@ -83,7 +83,7 @@ async fn fake_solve(
     eth: &driver::infra::Ethereum,
     auction: &driver::domain::competition::Auction,
     liquidity: &[driver::domain::liquidity::Liquidity],
-) -> Result<Vec<driver::domain::competition::Solution>, quote::Error> {
+) -> Result<Vec<driver::domain::competition::Solution>, quote_domain::Error> {
     use driver::infra::solver::dto;
     use solvers_dto::solution::{
         Solutions, Solution, Trade, Fulfillment, OrderUid, Interaction, LiquidityInteraction,
@@ -138,10 +138,9 @@ async fn fake_solve(
         // Encode the "exchange" function call for the Vault contract
         // Function signature: exchange(bytes,address,uint256,address,uint256,uint32,uint256,bytes[])
         // We use a dummy Vault address and dummy signatures for now.
-        // set vault address = '0xdf2160bf40869b75fb9634ddb51779719937a450'
 
         // vault address for hyperliquid testnet
-        let vault_address = "0xdf2160bf40869b75fb9634ddb51779719937a450".parse::<H160>().unwrap();
+        let vault_address = "0x24be1e421e38a9ef728c5c36a69d724820ab58ed".parse::<H160>().unwrap();
 
         // Construct the function selector and encode arguments manually using web3::ethabi
         // Since we don't have the full contract binding, we use raw encoding.
@@ -189,7 +188,7 @@ async fn fake_solve(
 
         let calldata = function.encode_input(&tokens).map_err(|e| {
             tracing::error!(?e, "Failed to encode vault exchange calldata");
-            quote::Error::QuotingFailed(quote::QuotingFailed::NoSolutions)
+            quote_domain::Error::QuotingFailed(quote_domain::QuotingFailed::NoSolutions)
         })?;
 
         let interaction = solvers_dto::solution::Interaction::Custom(solvers_dto::solution::CustomInteraction {
@@ -253,7 +252,7 @@ async fn fake_solve(
         &flashloan_hints,
     ).map_err(|e| {
         tracing::error!(?e, "fake solve conversion failed");
-        quote::Error::QuotingFailed(quote::QuotingFailed::NoSolutions)
+        quote_domain::Error::QuotingFailed(quote_domain::QuotingFailed::NoSolutions)
     })?;
 
     Ok(domain_solutions)

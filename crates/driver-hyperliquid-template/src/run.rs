@@ -46,11 +46,15 @@ async fn run_with(args: Args, addr_sender: Option<oneshot::Sender<SocketAddr>>) 
 
     let (shutdown_sender, shutdown_receiver) = tokio::sync::oneshot::channel();
     let eth = ethereum(&config, ethrpc).await;
+    let simulator = simulator(&config, &eth).await;
+    let mempools = mempools(&config, &eth, &web3).await;
     let api = Api{
         solvers: solvers(&config, &eth).await,
         liquidity: liquidity(&config, &eth).await,
         tokens: tokens::Fetcher::new(&eth),
         eth,
+        simulator,
+        mempools,
         addr: args.addr,
         addr_sender,
     }.serve(async{
@@ -130,4 +134,55 @@ async fn liquidity(config: &config::Config, eth: &Ethereum) -> liquidity::Fetche
     liquidity::Fetcher::try_new(eth, &config.liquidity)
         .await
         .expect("initialize liquidity fetcher")
+}
+
+async fn simulator(config: &config::Config, eth: &Ethereum) -> driver::infra::Simulator {
+    let mut simulator = match &config.simulator {
+        Some(driver::infra::simulator::Config::Tenderly(tenderly)) => {
+            driver::infra::Simulator::tenderly(
+                driver::infra::simulator::tenderly::Config {
+                    url: tenderly.url.clone(),
+                    api_key: tenderly.api_key.clone(),
+                    user: tenderly.user.clone(),
+                    project: tenderly.project.clone(),
+                    save: tenderly.save,
+                    save_if_fails: tenderly.save_if_fails,
+                },
+                eth.clone(),
+            )
+        }
+        Some(driver::infra::simulator::Config::Enso(enso)) => {
+            driver::infra::Simulator::enso(
+                driver::infra::simulator::enso::Config {
+                    url: enso.url.clone(),
+                    network_block_interval: enso.network_block_interval,
+                },
+                eth.clone(),
+            )
+        }
+        None => driver::infra::Simulator::ethereum(eth.clone()),
+    };
+    if config.disable_access_list_simulation {
+        simulator.disable_access_lists();
+    }
+    if let Some(gas) = config.disable_gas_simulation {
+        simulator.disable_gas(gas);
+    }
+    simulator
+}
+
+async fn mempools(
+    config: &config::Config,
+    eth: &Ethereum,
+    web3: &driver::boundary::Web3,
+) -> driver::domain::Mempools {
+    driver::domain::Mempools::try_new(
+        config
+            .mempools
+            .iter()
+            .map(|config| driver::infra::Mempool::new(config.clone(), web3.clone()))
+            .collect(),
+        eth.clone(),
+    )
+    .expect("initialize mempools")
 }

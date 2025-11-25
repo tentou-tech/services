@@ -1,6 +1,8 @@
 use {
     driver::{
+        domain::{competition, Mempools},
         infra::{
+            Simulator,
             blockchain::Ethereum,
             liquidity,
             solver::Solver,
@@ -8,7 +10,11 @@ use {
         },
     },
     futures::Future,
-    std::{net::SocketAddr, sync::Arc},
+    std::{
+        collections::HashMap,
+        net::SocketAddr,
+        sync::{Arc, Mutex},
+    },
     tokio::sync::oneshot,
 };
 
@@ -17,11 +23,20 @@ pub mod routes;
 
 const REQUEST_BODY_LIMIT: usize = 10 * 1024 * 1024;
 
+/// Stored settlement data for a solution
+pub struct SettlementData {
+    pub solved: competition::Solved,
+    pub auction_json: String,
+    pub solution_dto: solvers_dto::solution::Solution,
+}
+
 pub struct Api {
     pub solvers: Vec<Solver>,
     pub eth: Ethereum,
     pub liquidity: liquidity::Fetcher,
     pub tokens: tokens::Fetcher,
+    pub simulator: Simulator,
+    pub mempools: Mempools,
     pub addr: SocketAddr,
     /// If this channel is specified, the bound address will be sent to it. This
     /// allows the driver to bind to 0.0.0.0:0 during testing.
@@ -47,6 +62,18 @@ impl State {
     fn tokens(&self) -> &tokens::Fetcher {
         &self.0.tokens
     }
+
+    fn simulator(&self) -> &Simulator {
+        &self.0.simulator
+    }
+
+    fn mempools(&self) -> &Mempools {
+        &self.0.mempools
+    }
+
+    fn settlements(&self) -> &Arc<Mutex<HashMap<u64, SettlementData>>> {
+        &self.0.settlements
+    }
 }
 
 struct Inner {
@@ -54,6 +81,9 @@ struct Inner {
     solver: Solver,
     liquidity: liquidity::Fetcher,
     tokens: tokens::Fetcher,
+    simulator: Simulator,
+    mempools: Mempools,
+    settlements: Arc<Mutex<HashMap<u64, SettlementData>>>,
 }
 
 impl Api {
@@ -92,6 +122,9 @@ impl Api {
                 solver: solver.clone(),
                 liquidity: self.liquidity.clone(),
                 tokens: self.tokens.clone(),
+                simulator: self.simulator.clone(),
+                mempools: self.mempools.clone(),
+                settlements: Default::default(),
             })));
             let path = format!("/{name}");
             app = app.nest(&path, router);

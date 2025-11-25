@@ -1,0 +1,47 @@
+{
+  "id": "1",
+  "tokens": {
+    "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": {
+      "decimals": 18,
+      "symbol": "WETH",
+      "referencePrice": "1000000000000000000",
+      "availableBalance": "10000000000000000000",
+      "trusted": true
+    },
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+      "decimals": 6,
+      "symbol": "USDC",
+      "referencePrice": "1000000000000000000",
+      "availableBalance": "10000000000",
+      "trusted": true
+    }
+  },
+  "orders": [
+    {
+      "uid": "0x1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "sellToken": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "buyToken": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "sellAmount": "1000000000000000000",
+      "buyAmount": "1000000",
+      "fullSellAmount": "1000000000000000000",
+      "fullBuyAmount": "1000000",
+      "validTo": 1700000000,
+      "kind": "sell",
+      "receiver": "0x0000000000000000000000000000000000000001",
+      "owner": "0x0000000000000000000000000000000000000002",
+      "partiallyFillable": false,
+      "preInteractions": [],
+      "postInteractions": [],
+      "sellTokenSource": "erc20",
+      "buyTokenDestination": "erc20",
+      "class": "limit",
+      "appData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "signingScheme": "eip712",
+      "signature": "0x"
+    }
+  ],
+  "liquidity": [],
+  "effectiveGasPrice": "1000000000",
+  "deadline": "2023-11-24T12:00:00Z",
+  "surplusCapturingJitOrderOwners": []
+}

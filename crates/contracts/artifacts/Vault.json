@@ -68,7 +68,18 @@
       "type": "error"
     },
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "digest",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes",
+          "name": "signature",
+          "type": "bytes"
+        }
+      ],
       "name": "InvalidSignature",
       "type": "error"
     },
@@ -103,9 +114,9 @@
       "inputs": [
         {
           "indexed": true,
-          "internalType": "bytes",
+          "internalType": "bytes32",
           "name": "orderUid",
-          "type": "bytes"
+          "type": "bytes32"
         },
         {
           "indexed": true,
@@ -309,9 +320,9 @@
     {
       "inputs": [
         {
-          "internalType": "bytes",
+          "internalType": "bytes32",
           "name": "orderUid",
-          "type": "bytes"
+          "type": "bytes32"
         },
         {
           "internalType": "contract IERC20",
@@ -545,9 +556,9 @@
     {
       "inputs": [
         {
-          "internalType": "bytes",
+          "internalType": "bytes32",
           "name": "",
-          "type": "bytes"
+          "type": "bytes32"
         },
         {
           "internalType": "bytes",
