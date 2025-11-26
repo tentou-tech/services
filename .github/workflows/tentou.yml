@@ -55,6 +55,8 @@ jobs:
           cd gitops/clusters/k8s-dev/cow-protocol
           
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          RND=$(head /dev/urandom | tr -dc a-z0-9 | head -c 5)
+          ./kustomize edit set nameSuffix "-$RND" --resources ../../../base/cow-protocol/02-db-migration-job.yaml
           ./kustomize edit set image image_migrations=$MIGRATIONS_IMAGE:${{ env.IMAGE_TAG }}
           ./kustomize edit set image image_orderbook=$ORDERBOOK_IMAGE:${{ env.IMAGE_TAG }}
           ./kustomize edit set image image_autopilot=$AUTOPILOT_IMAGE:${{ env.IMAGE_TAG }}
@@ -67,4 +69,5 @@ jobs:
           git commit -am "Update images to ${GITHUB_SHA::8}"
 
           git push
+
 
