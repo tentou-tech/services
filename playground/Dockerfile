@@ -1,6 +1,5 @@
 FROM debian:bookworm AS chef
 WORKDIR /src/
-COPY . .
 RUN apt-get update && apt-get install -y curl git clang mold libssl-dev pkg-config git && apt-get clean
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="$PATH:/root/.cargo/bin"
@@ -13,13 +12,6 @@ rustflags = [\"-C\", \"link-arg=-fuse-ld=/usr/bin/mold\", \"--cfg\", \"tokio_uns
 [target.$(rustc -Vv | grep host | awk '{print $2}')]\n \
 linker = \"clang\"\n \
 " > ~/.cargo/config.toml
-RUN echo "\
-[build]\n \
-target = \"$(rustc -Vv | grep host | awk '{print $2}')\"\n \
-rustflags = [\"-C\", \"link-arg=-fuse-ld=/usr/bin/mold\", \"--cfg\", \"tokio_unstable\"]\n \
-[target.$(rustc -Vv | grep host | awk '{print $2}')]\n \
-linker = \"clang\"\n \
-" > /.cargo/config.toml
 
 RUN cargo install cargo-chef
 
