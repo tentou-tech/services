@@ -8,15 +8,19 @@ use {
             competition::{self, order, solution},
             eth,
         },
-        infra::{api::error::Error, observe},
+        infra::{api::error::Error, config::file::FeeHandler},
+        util::Bytes,
     },
     solvers_dto::auction::Auction,
-    std::{
-        collections::HashMap,
-        sync::Arc,
-    },
+    std::collections::{HashMap, HashSet},
     tracing::Instrument,
-    web3::ethabi,
+    alloy::{
+        primitives::{Address as AlloyAddress, U256 as AlloyU256, Bytes as AlloyBytes, keccak256},
+        sol_types::SolValue,
+    },
+    rand::{Rng, rngs::OsRng},
+    ethcontract,
+    alloy::signers::{local::PrivateKeySigner, Signer},
 };
 
 pub(in crate::infra::api) fn solve(router: axum::Router<State>) -> axum::Router<State> {
@@ -28,40 +32,54 @@ async fn route(
     req: String,
 ) -> Result<axum::Json<dto::SolveResponse>, (hyper::StatusCode, axum::Json<Error>)> {
     let handle_request = async {
-        let auction: Auction = serde_json::from_str(&req).map_err(|e| {
+        let auction_dto: Auction = serde_json::from_str(&req).map_err(|e| {
             tracing::error!(?e, "Failed to parse auction");
             competition::Error::MalformedRequest
         })?;
 
-        // Create solution with Vault interactions
-        let (solved, solution_dto) = create_solution_with_vault(&auction)?;
+        // 1. Convert DTO Auction to Domain Auction (Simplified for this use case)
+        let domain_orders = map_orders(&auction_dto.orders);
+        let domain_tokens = map_tokens(&auction_dto.tokens);
+        let deadline = chrono::Utc::now() + chrono::Duration::seconds(60); // Mock deadline
 
-        // Store settlement data (manually clone Solved since it doesn't implement Clone)
-        let cloned_trades = solved.trades.iter().map(|(uid, amounts)| {
-            (*uid, competition::Amounts {
-                side: amounts.side,
-                sell: amounts.sell,
-                buy: amounts.buy,
-                executed_sell: amounts.executed_sell,
-                executed_buy: amounts.executed_buy,
-            })
-        }).collect();
+        let auction_id = auction_dto.id
+            .and_then(|id| competition::auction::Id::try_from(id).ok())
+            .unwrap_or(competition::auction::Id(0));
 
-        let settlement_data = crate::infra::api::SettlementData {
-            solved: competition::Solved {
-                id: solved.id.clone(),
-                score: solved.score,
-                trades: cloned_trades,
-                prices: solved.prices.clone(),
-                gas: solved.gas,
-            },
-            auction_json: req.clone(),
-            solution_dto,
-        };
+        let domain_auction = competition::Auction::new(
+             Some(auction_id),
+             domain_orders,
+             domain_tokens.into_iter(),
+             deadline,
+             state.eth(),
+             HashSet::new(),
+        ).await.map_err(|e| {
+            tracing::error!(?e, "Failed to create domain auction");
+            competition::Error::MalformedRequest
+        })?;
 
-        let mut settlements = state.settlements().lock().unwrap();
-        settlements.insert(solved.id.get(), settlement_data);
-        drop(settlements);
+        // 2. Create Domain Solution with Vault interactions
+        let (solved, domain_solution) = create_domain_solution(&domain_auction, state.solver(), state.eth())?;
+
+        // 3. Encode into Settlement
+        let settlement = domain_solution
+            .encode(
+                &domain_auction,
+                state.eth(),
+                state.simulator(),
+                state.solver().solver_native_token(),
+            )
+            .await
+            .map_err(|e| {
+                tracing::error!(?e, "Failed to encode settlement");
+                competition::Error::MalformedRequest
+            })?;
+
+        // 4. Store in Competition
+        {
+            let mut settlements = state.competition().settlements.lock().unwrap();
+            settlements.push_back(settlement);
+        }
 
         Ok(axum::Json(dto::SolveResponse::new(
             Some(solved),
@@ -74,64 +92,124 @@ async fn route(
         .await
 }
 
-/// Create a solution with Vault interactions
-fn create_solution_with_vault(
-    auction: &Auction,
-) -> Result<(competition::Solved, solvers_dto::solution::Solution), competition::Error> {
-    use solvers_dto::solution::{
-        Solution, Trade, Fulfillment, OrderUid, Interaction, CustomInteraction,
-        Allowance, Asset,
-    };
-    use std::collections::HashMap;
-    use web3::types::{H160, U256};
-
-    let mut trades = Vec::new();
-    let mut prices = HashMap::new();
-    let mut interactions: Vec<Interaction> = Vec::new();
-    let mut solved_trades = HashMap::new();
-
-    // Set 1:1 prices for all tokens
-    for (token, _) in &auction.tokens {
-        prices.insert(*token, U256::from_dec_str("1000000000000000000").unwrap());
-    }
-
-    for order in &auction.orders {
-        let executed_amount = match order.kind {
-            solvers_dto::auction::Kind::Sell => order.sell_amount,
-            solvers_dto::auction::Kind::Buy => order.buy_amount,
-        };
-
-        // Create fulfillment trade for DTO
-        let fulfillment = Fulfillment {
-            order: OrderUid(order.uid),
-            executed_amount,
-            fee: None,
-        };
-        trades.push(Trade::Fulfillment(fulfillment));
-
-        // Create trade for Solved response
-        let amounts = competition::Amounts {
-            side: match order.kind {
+fn map_orders(orders: &[solvers_dto::auction::Order]) -> Vec<competition::Order> {
+    orders.iter().map(|o| {
+        competition::Order {
+            uid: order::Uid::from(o.uid),
+            kind: match o.class {
+                solvers_dto::auction::Class::Market => order::Kind::Market,
+                solvers_dto::auction::Class::Limit => order::Kind::Limit,
+            },
+            side: match o.kind {
                 solvers_dto::auction::Kind::Sell => order::Side::Sell,
                 solvers_dto::auction::Kind::Buy => order::Side::Buy,
             },
             sell: eth::Asset {
-                token: eth::TokenAddress::from(order.sell_token),
-                amount: order.sell_amount.into(),
+                token: eth::TokenAddress::from(o.sell_token),
+                amount: o.sell_amount.into(),
             },
             buy: eth::Asset {
-                token: eth::TokenAddress::from(order.buy_token),
-                amount: order.buy_amount.into(),
+                token: eth::TokenAddress::from(o.buy_token),
+                amount: o.buy_amount.into(),
             },
-            executed_sell: eth::TokenAmount(order.sell_amount.into()),
-            executed_buy: eth::TokenAmount(order.buy_amount.into()),
-        };
-        solved_trades.insert(order::Uid::from(order.uid), amounts);
+            signature: order::Signature {
+                scheme: match o.signing_scheme {
+                    solvers_dto::auction::SigningScheme::Eip712 => order::signature::Scheme::Eip712,
+                    solvers_dto::auction::SigningScheme::EthSign => order::signature::Scheme::EthSign,
+                    solvers_dto::auction::SigningScheme::Eip1271 => order::signature::Scheme::Eip1271,
+                    solvers_dto::auction::SigningScheme::PreSign => order::signature::Scheme::PreSign,
+                },
+                data: Bytes(o.signature.clone()),
+                signer: eth::Address(o.owner),
+            },
+            receiver: None,
+            created: 0.into(),
+            valid_to: driver::util::Timestamp(o.valid_to),
+            app_data: order::app_data::AppData::default(), // Mock
+            partial: order::Partial::No,
+            pre_interactions: vec![],
+            post_interactions: vec![],
+            sell_token_balance: order::SellTokenBalance::Erc20,
+            buy_token_balance: order::BuyTokenBalance::Erc20,
+            protocol_fees: vec![],
+            quote: None,
+        }
+    }).collect()
+}
 
-        // Create Vault interaction for this order
-        let vault_address = "0xdf2160bf40869b75fb9634ddb51779719937a450".parse::<H160>().unwrap();
+fn map_tokens(tokens: &HashMap<web3::types::H160, solvers_dto::auction::Token>) -> Vec<competition::auction::Token> {
+    tokens.iter().map(|(addr, t)| {
+        competition::auction::Token {
+            decimals: t.decimals,
+            symbol: t.symbol.clone(),
+            address: eth::TokenAddress::from(*addr),
+            price: t.reference_price.map(|p| competition::auction::Price(eth::Ether(p.into()))),
+            available_balance: t.available_balance.into(),
+            trusted: t.trusted,
+        }
+    }).collect()
+}
+
+fn create_domain_solution(
+    auction: &competition::Auction,
+    solver: &driver::infra::Solver,
+    eth: &driver::infra::Ethereum,
+) -> Result<(competition::Solved, competition::Solution), competition::Error> {
+    let mut trades = Vec::new();
+    let mut interactions = Vec::new();
+    let mut solved_trades = HashMap::new();
+    let mut prices = HashMap::new();
+
+    let weth_address = eth.contracts().weth_address();
+    let settlement_contract_address = eth.contracts().settlement().address();
+    let chain_id = eth.chain().id();
+
+    // Set prices (mock 1:1)
+    for token in auction.tokens().iter() {
+         prices.insert(token.address, eth::U256::exp10(18));
+    }
+    // Also add ETH and WETH price to ensure clearing prices are found
+    prices.insert(eth::ETH_TOKEN, eth::U256::exp10(18));
+    prices.insert(weth_address.0, eth::U256::exp10(18));
+
+
+    for order in auction.orders() {
+        // Correctly determine executed amount based on order side
+        let executed_amount = match order.side {
+            order::Side::Sell => order.sell.amount,
+            order::Side::Buy => order.buy.amount,
+        };
+
+        // Create Fulfillment
+        let fulfillment = solution::trade::Fulfillment::new(
+            order.clone(),
+            executed_amount.into(),
+            solution::trade::Fee::Dynamic(order::SellAmount::default()), // Dynamic fee (0)
+        ).map_err(|e| {
+            tracing::error!(?e, "Failed to create fulfillment");
+            competition::Error::SolutionNotAvailable
+        })?;
         
-        // Encode the exchange function call
+        trades.push(solution::Trade::Fulfillment(fulfillment));
+
+        // Create Solved Trade
+         let amounts = competition::Amounts {
+            side: order.side,
+            sell: order.sell,
+            buy: order.buy,
+            executed_sell: order.sell.amount,
+            executed_buy: order.buy.amount,
+        };
+        solved_trades.insert(order.uid, amounts);
+
+        // Vault Interaction
+        let vault_address = "0xdf2160bf40869b75fb9634ddb51779719937a450".parse::<eth::H160>().unwrap();
+
+        let mut rng = OsRng;
+        let nonce: u64 = rng.gen();
+        let random_nonce = eth::U256::from(nonce);
+
+         // Encode the exchange function call
         #[allow(deprecated)]
         let function = web3::ethabi::Function {
             name: "exchange".to_owned(),
@@ -141,8 +219,11 @@ fn create_solution_with_vault(
                 web3::ethabi::Param { name: "amountIn".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
                 web3::ethabi::Param { name: "tokenOut".to_owned(), kind: web3::ethabi::ParamType::Address, internal_type: None },
                 web3::ethabi::Param { name: "amountOut".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
-                web3::ethabi::Param { name: "validTo".to_owned(), kind: web3::ethabi::ParamType::Uint(32), internal_type: None },
+                web3::ethabi::Param { name: "validTo".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
+                web3::ethabi::Param { name: "chainId".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
                 web3::ethabi::Param { name: "nonce".to_owned(), kind: web3::ethabi::ParamType::Uint(256), internal_type: None },
+                web3::ethabi::Param { name: "contractAddress".to_owned(), kind: web3::ethabi::ParamType::Address, internal_type: None },
+                web3::ethabi::Param { name: "sender".to_owned(), kind: web3::ethabi::ParamType::Address, internal_type: None },
                 web3::ethabi::Param { name: "signatures".to_owned(), kind: web3::ethabi::ParamType::Array(Box::new(web3::ethabi::ParamType::Bytes)), internal_type: None },
             ],
             outputs: vec![],
@@ -150,62 +231,95 @@ fn create_solution_with_vault(
             state_mutability: web3::ethabi::StateMutability::Payable,
         };
 
-        let tokens = vec![
-            web3::ethabi::Token::Bytes(order.uid.to_vec()),
-            web3::ethabi::Token::Address(order.sell_token),
-            web3::ethabi::Token::Uint(order.sell_amount),
-            web3::ethabi::Token::Address(order.buy_token),
-            web3::ethabi::Token::Uint(order.buy_amount),
-            web3::ethabi::Token::Uint(U256::from(order.valid_to)),
-            web3::ethabi::Token::Uint(U256::zero()),
-            web3::ethabi::Token::Array(vec![]),
-        ];
+        // Use Alloy for ABI encoding the payload to sign
+        let sell_h160: web3::types::H160 = order.sell.token.0.into();
+        let buy_h160: web3::types::H160 = order.buy.token.0.into();
+        let payload = (
+            AlloyBytes::from(order.uid.0.0.to_vec()),
+            AlloyAddress::from_slice(&sell_h160.0),
+            AlloyU256::from_limbs(order.sell.amount.0.0),
+            AlloyAddress::from_slice(&buy_h160.0),
+            AlloyU256::from_limbs(order.buy.amount.0.0),
+            AlloyU256::from(u32::from(order.valid_to)),
+            AlloyU256::from(chain_id),
+            AlloyU256::from(nonce),
+            AlloyAddress::from_slice(&vault_address.0),
+            AlloyAddress::from_slice(settlement_contract_address.as_ref()),
+        );
+        
+        let encoded_payload = payload.abi_encode();
+        let message_hash = keccak256(&encoded_payload);
+        
+        // Sign using solver account (alloy)
+        let solver_key = if let ethcontract::Account::Offline(key, _) = &solver.config().account {
+            key
+        } else {
+            panic!("Solver account is not an offline account with a private key.");
+        };
+        let signer = PrivateKeySigner::from_bytes(&alloy::primitives::FixedBytes(solver_key.as_ref().clone())).unwrap();
+        let signature = futures::executor::block_on(signer.sign_hash(&message_hash)).unwrap();
+        let signature = serde_json::to_vec(&signature).unwrap();
+        
 
+        let tokens = vec![
+            web3::ethabi::Token::Bytes(order.uid.0.0.to_vec()),
+            web3::ethabi::Token::Address(order.sell.token.0.into()),
+            web3::ethabi::Token::Uint(order.sell.amount.0),
+            web3::ethabi::Token::Address(order.buy.token.0.into()),
+            web3::ethabi::Token::Uint(order.buy.amount.0),
+            web3::ethabi::Token::Uint(u32::from(order.valid_to).into()),
+            web3::ethabi::Token::Uint(chain_id.into()), // Add chainId
+            web3::ethabi::Token::Uint(random_nonce),
+            web3::ethabi::Token::Address(vault_address.into()), // Add contractAddress
+            web3::ethabi::Token::Address(settlement_contract_address.0.into()), // Add sender
+            web3::ethabi::Token::Array(vec![web3::ethabi::Token::Bytes(signature)]),
+        ];
+        
         let calldata = function.encode_input(&tokens).map_err(|_| competition::Error::MalformedRequest)?;
 
-        let interaction = Interaction::Custom(CustomInteraction {
+        let interaction = solution::Interaction::Custom(solution::interaction::Custom {
+            target: eth::ContractAddress(vault_address.into()),
+            value: eth::Ether(eth::U256::zero()),
+            call_data: Bytes(calldata),
+            allowances: vec![
+                eth::Allowance {
+                    token: order.sell.token,
+                    spender: eth::Address(vault_address),
+                    amount: order.sell.amount.0,
+                }.into()
+            ],
+            inputs: vec![order.sell],
+            outputs: vec![order.buy],
             internalize: false,
-            target: vault_address,
-            value: U256::zero(),
-            calldata,
-            allowances: vec![Allowance {
-                token: order.sell_token,
-                spender: vault_address,
-                amount: order.sell_amount,
-            }],
-            inputs: vec![Asset {
-                token: order.sell_token,
-                amount: order.sell_amount,
-            }],
-            outputs: vec![Asset {
-                token: order.buy_token,
-                amount: order.buy_amount,
-            }],
         });
-
         interactions.push(interaction);
     }
 
-    // Create the DTO solution
-    let solution_dto = Solution {
-        id: 0,
-        prices: prices.clone(),
+    let solution = competition::Solution::new(
+        solution::Id::new(0),
         trades,
-        pre_interactions: vec![],
+        prices.clone(),
+        vec![], // pre_interactions
         interactions,
-        post_interactions: vec![],
-        gas: None,
-        flashloans: None,
-    };
+        vec![], // post_interactions
+        solver.clone(),
+        weth_address,
+        None,
+        FeeHandler::Driver,
+        &HashSet::new(),
+        HashMap::new(),
+    ).map_err(|e| {
+         tracing::error!(?e, "Failed to create solution");
+         competition::Error::SolutionNotAvailable
+    })?;
 
-    // Create Solved for response
     let solved = competition::Solved {
         id: solution::Id::new(0),
         score: eth::Ether(0.into()),
         trades: solved_trades,
-        prices: prices.iter().map(|(k, v)| (eth::TokenAddress::from(*k), eth::TokenAmount(*v))).collect(),
+        prices: prices.iter().map(|(k,v)| (*k, eth::TokenAmount(*v))).collect(),
         gas: None,
     };
 
-    Ok((solved, solution_dto))
+    Ok((solved, solution))
 }
