@@ -13,6 +13,13 @@ rustflags = [\"-C\", \"link-arg=-fuse-ld=/usr/bin/mold\", \"--cfg\", \"tokio_uns
 [target.$(rustc -Vv | grep host | awk '{print $2}')]\n \
 linker = \"clang\"\n \
 " > ~/.cargo/config.toml
+RUN echo "\
+[build]\n \
+target = \"$(rustc -Vv | grep host | awk '{print $2}')\"\n \
+rustflags = [\"-C\", \"link-arg=-fuse-ld=/usr/bin/mold\", \"--cfg\", \"tokio_unstable\"]\n \
+[target.$(rustc -Vv | grep host | awk '{print $2}')]\n \
+linker = \"clang\"\n \
+" > /.cargo/config.toml
 
 RUN cargo install cargo-chef
 
