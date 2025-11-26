@@ -30,10 +30,10 @@ jobs:
       - name: Build & Push Images
         run: |
           docker buildx build -f ./playground/Dockerfile -t $MIGRATIONS_IMAGE:${{ env.IMAGE_TAG }} --target migrations --push .
-          docker buildx build -f ./playground/Dockerfile -t $ORDERBOOK_IMAGE:${{ env.IMAGE_TAG }} --target orderbook --push .
-          docker buildx build -f ./playground/Dockerfile -t $AUTOPILOT_IMAGE:${{ env.IMAGE_TAG }} --target autopilot --push .
-          docker buildx build -f ./playground/Dockerfile -t $DRIVER_IMAGE:${{ env.IMAGE_TAG }} --target driver --push .
-          docker buildx build -f ./playground/Dockerfile -t $BASELINE_IMAGE:${{ env.IMAGE_TAG }} --target solvers --push .
+          docker buildx build -f ./playground/Dockerfile -t $ORDERBOOK_IMAGE:${{ env.IMAGE_TAG }} --target localdev --push .
+          docker buildx build -f ./playground/Dockerfile -t $AUTOPILOT_IMAGE:${{ env.IMAGE_TAG }} --target localdev --push .
+          docker buildx build -f ./playground/Dockerfile -t $DRIVER_IMAGE:${{ env.IMAGE_TAG }} --target localdev --push .
+          docker buildx build -f ./playground/Dockerfile -t $BASELINE_IMAGE:${{ env.IMAGE_TAG }} --target localdev --push .
   updategitops:
     runs-on: ubuntu-latest
     needs: build
@@ -67,3 +67,4 @@ jobs:
           git commit -am "Update images to ${GITHUB_SHA::8}"
 
           git push
+
