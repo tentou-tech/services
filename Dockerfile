@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked apt-get update && \
     apt-get install -y git libssl-dev pkg-config
 # Install Rust toolchain
 RUN rustup install stable && rustup default stable
-
+ENV PATH="$PATH:/root/.cargo/bin"
 # Copy and Build Code
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/src/target \
@@ -29,26 +29,32 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked apt-get update && \
     apt-get clean
 
 FROM intermediate AS alerter
+ENV PATH="$PATH:/root/.cargo/bin"
 COPY --from=cargo-build /alerter /usr/local/bin/alerter
 ENTRYPOINT [ "alerter" ]
 
 FROM intermediate AS autopilot
+ENV PATH="$PATH:/root/.cargo/bin"
 COPY --from=cargo-build /autopilot /usr/local/bin/autopilot
 ENTRYPOINT [ "autopilot" ]
 
 FROM intermediate AS driver
+ENV PATH="$PATH:/root/.cargo/bin"
 COPY --from=cargo-build /driver /usr/local/bin/driver
 ENTRYPOINT [ "driver" ]
 
 FROM intermediate AS orderbook
+ENV PATH="$PATH:/root/.cargo/bin"
 COPY --from=cargo-build /orderbook /usr/local/bin/orderbook
 ENTRYPOINT [ "orderbook" ]
 
 FROM intermediate AS refunder
+ENV PATH="$PATH:/root/.cargo/bin"
 COPY --from=cargo-build /refunder /usr/local/bin/refunder
 ENTRYPOINT [ "refunder" ]
 
 FROM intermediate AS solvers
+ENV PATH="$PATH:/root/.cargo/bin"
 COPY --from=cargo-build /solvers /usr/local/bin/solvers
 ENTRYPOINT [ "solvers" ]
 
