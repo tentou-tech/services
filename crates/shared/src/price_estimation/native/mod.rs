@@ -62,6 +62,9 @@ pub struct NativePriceEstimator {
     inner: Arc<dyn PriceEstimating>,
     native_token: H160,
     price_estimation_amount: NonZeroU256,
+
+    // workaround for integrating with kyper-swap
+    is_revert_order: bool,
 }
 
 impl NativePriceEstimator {
@@ -74,18 +77,44 @@ impl NativePriceEstimator {
             inner,
             native_token,
             price_estimation_amount,
+            is_revert_order: false,
+        }
+    }
+
+    pub fn new_with_revert_order(
+        inner: Arc<dyn PriceEstimating>,
+        native_token: H160,
+        price_estimation_amount: NonZeroU256,
+    ) -> Self {
+        Self {
+            inner,
+            native_token,
+            price_estimation_amount,
+            is_revert_order: true,
         }
     }
 
     fn query(&self, token: &H160, timeout: Duration) -> Query {
-        Query {
-            sell_token: *token,
-            buy_token: self.native_token,
-            in_amount: self.price_estimation_amount,
-            kind: OrderKind::Buy,
-            verification: Default::default(),
-            block_dependent: false,
-            timeout,
+        if self.is_revert_order {
+            Query {
+                sell_token: self.native_token,
+                buy_token: *token,
+                in_amount: self.price_estimation_amount,
+                kind: OrderKind::Sell,
+                verification: Default::default(),
+                block_dependent: false,
+                timeout,
+            }
+        } else {
+            Query {
+                sell_token: *token,
+                buy_token: self.native_token,
+                in_amount: self.price_estimation_amount,
+                kind: OrderKind::Buy,
+                verification: Default::default(),
+                block_dependent: false,
+                timeout,
+            }
         }
     }
 }
@@ -100,13 +129,27 @@ impl NativePriceEstimating for NativePriceEstimator {
         async move {
             let query = Arc::new(self.query(&token, timeout));
             let estimate = self.inner.estimate(query.clone()).await?;
-            let price = estimate.price_in_buy_token_f64(&query);
+            let price = if self.is_revert_order {
+                let price_ratio = estimate.price_in_buy_token_f64(&query);
+                1.0/price_ratio
+            } else {
+                estimate.price_in_buy_token_f64(&query)
+            };
+
             if is_price_malformed(price) {
                 let err = anyhow::anyhow!("estimator returned malformed price: {price}");
                 Err(PriceEstimationError::EstimatorInternal(err))
             } else {
                 Ok(price)
             }
+
+            // let price = estimate.price_in_buy_token_f64(&query);
+            // if is_price_malformed(price) {
+            //     let err = anyhow::anyhow!("estimator returned malformed price: {price}");
+            //     Err(PriceEstimationError::EstimatorInternal(err))
+            // } else {
+            //     Ok(price)
+            // }
         }
         .boxed()
     }
@@ -143,11 +186,11 @@ mod tests {
             .boxed()
         });
 
-        let native_price_estimator = NativePriceEstimator {
-            inner: Arc::new(inner),
-            native_token: H160::from_low_u64_be(7),
-            price_estimation_amount: NonZeroU256::try_from(U256::exp10(18)).unwrap(),
-        };
+        let native_price_estimator = NativePriceEstimator::new(
+            Arc::new(inner),
+            H160::from_low_u64_be(7),
+            NonZeroU256::try_from(U256::exp10(18)).unwrap(),
+        );
 
         let result = native_price_estimator
             .estimate_native_price(H160::from_low_u64_be(3), HEALTHY_PRICE_ESTIMATION_TIME)
@@ -164,11 +207,11 @@ mod tests {
             async { Err(PriceEstimationError::NoLiquidity) }.boxed()
         });
 
-        let native_price_estimator = NativePriceEstimator {
-            inner: Arc::new(inner),
-            native_token: H160::from_low_u64_be(7),
-            price_estimation_amount: NonZeroU256::try_from(U256::exp10(18)).unwrap(),
-        };
+        let native_price_estimator = NativePriceEstimator::new(
+            Arc::new(inner),
+            H160::from_low_u64_be(7),
+            NonZeroU256::try_from(U256::exp10(18)).unwrap(),
+        );
 
         let result = native_price_estimator
             .estimate_native_price(H160::from_low_u64_be(2), HEALTHY_PRICE_ESTIMATION_TIME)

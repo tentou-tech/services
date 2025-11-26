@@ -62,6 +62,7 @@ impl ExternalTradeFinder {
                 kind: query.kind,
                 deadline: chrono::Utc::now() + query.timeout,
             };
+            println!("shared_query: order: {:#?}", order);
             let block_dependent = query.block_dependent;
             let id = observe::distributed_tracing::request_id::from_current_span();
             let client = self.client.clone();

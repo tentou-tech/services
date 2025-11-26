@@ -32,6 +32,7 @@ const REQUEST_BODY_LIMIT: usize = 10 * 1024 * 1024;
 pub struct Api {
     pub solvers: Vec<Solver>,
     pub liquidity: liquidity::Fetcher,
+    pub liquidity_config: liquidity::Config,
     pub liquidity_sources_notifier: notify::liquidity_sources::Notifier,
     pub simulator: Simulator,
     pub eth: Ethereum,
@@ -115,9 +116,10 @@ impl Api {
                 eth: self.eth.clone(),
                 solver: solver.clone(),
                 competition: domain::Competition::new(
-                    solver,
+                    solver.clone(),
                     self.eth.clone(),
                     self.liquidity.clone(),
+                    self.liquidity_config.clone(),
                     self.liquidity_sources_notifier.clone(),
                     self.simulator.clone(),
                     self.mempools.clone(),
@@ -126,6 +128,7 @@ impl Api {
                     order_sorting_strategies.clone(),
                 ),
                 liquidity: self.liquidity.clone(),
+                liquidity_config: self.liquidity_config.clone(),
                 tokens: tokens.clone(),
             })));
             let path = format!("/{name}");
@@ -201,6 +204,10 @@ impl State {
     fn tokens(&self) -> &tokens::Fetcher {
         &self.0.tokens
     }
+
+    fn liquidity_config(&self) -> &liquidity::Config {
+        &self.0.liquidity_config
+    }
 }
 
 struct Inner {
@@ -208,5 +215,6 @@ struct Inner {
     solver: Solver,
     competition: Arc<domain::Competition>,
     liquidity: liquidity::Fetcher,
+    liquidity_config: liquidity::Config,
     tokens: tokens::Fetcher,
 }

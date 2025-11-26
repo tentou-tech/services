@@ -28,10 +28,12 @@ async fn route(
                 state.eth(),
                 state.solver(),
                 state.liquidity(),
+                state.liquidity_config(),
                 state.tokens(),
             )
             .await;
         observe::quoted(state.solver().name(), &order, &quote);
+        println!("quote: {:#?}", quote);
         Ok(axum::response::Json(dto::Quote::new(quote?)))
     };
 

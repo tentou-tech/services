@@ -376,6 +376,13 @@ impl SolvableOrdersCache {
 
         let mut orders = fetch_orders.await?;
 
+        // tracing::info!(
+        //     orders_fetched = orders.orders.len(),
+        //     fetched_from_db = ?orders.fetched_from_db,
+        //     latest_settlement_block = orders.latest_settlement_block,
+        //     "fetched orders from database"
+        // );
+
         // Move the checkpoint slightly back in time to mitigate race conditions
         // caused by inconsistencies of stored timestamps. See #2959 for more details.
         // This will cause us to fetch orders created or cancelled in the buffer

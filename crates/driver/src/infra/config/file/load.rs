@@ -142,6 +142,7 @@ pub async fn load(chain: Chain, path: &Path) -> infra::Config {
                     file::AtBlock::Latest => liquidity::AtBlock::Latest,
                     file::AtBlock::Finalized => liquidity::AtBlock::Finalized,
                 },
+                kyberswap_only: solver_config.kyberswap_only,
             }
         }))
         .await,
@@ -304,6 +305,18 @@ pub async fn load(chain: Chain, path: &Path) -> infra::Config {
                     base_url: config.base_url,
                     api_key: config.api_key,
                     http_timeout: config.http_timeout,
+                }),
+            kyberswap: config
+                .liquidity
+                .kyberswap
+                .map(|config| liquidity::config::KyberSwap {
+                    api_url: config.api_url,
+                    chain_name: config.chain_name,
+                    meta_aggregator_router: config.meta_aggregator_router.into(),
+                    http_timeout: config.http_timeout,
+                    slippage_bps: config.slippage_bps,
+                    cache_ttl: config.cache_ttl,
+                    client_id: config.client_id,
                 }),
         },
         liquidity_sources_notifier: config.liquidity_sources_notifier.map(|notifier| {

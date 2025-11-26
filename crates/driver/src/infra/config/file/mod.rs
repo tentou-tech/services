@@ -294,6 +294,11 @@ struct SolverConfig {
     /// before the driver starts dropping new `/solve` requests.
     #[serde(default = "default_settle_queue_size")]
     settle_queue_size: usize,
+
+    /// If enabled, driver generates solutions directly using KyberSwap routes
+    /// without calling the solver engine. Requires KyberSwap liquidity config.
+    #[serde(default)]
+    kyberswap_only: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -456,6 +461,10 @@ struct LiquidityConfig {
     /// Liquidity provided by 0x API.
     #[serde(default)]
     zeroex: Option<ZeroExConfig>,
+
+    /// Liquidity provided by KyberSwap Aggregator API.
+    #[serde(default)]
+    kyberswap: Option<KyberSwapConfig>,
 
     /// Defines at which block the liquidity needs to be fetched on /solve
     /// requests.
@@ -678,6 +687,44 @@ fn default_zeroex_base_url() -> String {
 
 fn default_http_timeout() -> Duration {
     Duration::from_secs(10)
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct KyberSwapConfig {
+    #[serde(default = "default_kyberswap_api_url")]
+    pub api_url: String,
+    #[serde(default = "default_kyberswap_chain_name")]
+    pub chain_name: String,
+    pub meta_aggregator_router: eth::H160,
+    #[serde(with = "humantime_serde", default = "default_http_timeout")]
+    pub http_timeout: Duration,
+    #[serde(default = "default_kyberswap_slippage_bps")]
+    pub slippage_bps: u32,
+    #[serde(with = "humantime_serde", default = "default_kyberswap_cache_ttl")]
+    pub cache_ttl: Duration,
+    #[serde(default = "default_kyberswap_client_id")]
+    pub client_id: String,
+}
+
+fn default_kyberswap_api_url() -> String {
+    "https://aggregator-api.kyberswap.com".to_string()
+}
+
+fn default_kyberswap_client_id() -> String {
+    "tentou-protocol".to_string()
+}
+
+fn default_kyberswap_chain_name() -> String {
+    "hyperevm".to_string()
+}
+
+fn default_kyberswap_slippage_bps() -> u32 {
+    50 // 0.5% slippage
+}
+
+fn default_kyberswap_cache_ttl() -> Duration {
+    Duration::from_secs(30)
 }
 
 fn default_response_size_limit_max_bytes() -> usize {

@@ -59,6 +59,9 @@ pub fn new(
                     limit_order.order.taker_token.into(),
                 ]
             }
+            liquidity::Kind::KyberSwap(route) => {
+                vec![route.token_in.into(), route.token_out.into()]
+            }
         })
     {
         tokens.entry(token.into()).or_insert_with(Default::default);
@@ -304,6 +307,22 @@ pub fn new(
                             maker_amount: limit_order.fillable.maker.into(),
                             taker_amount: limit_order.fillable.taker.into(),
                             taker_token_fee_amount: limit_order.order.taker_token_fee_amount.into(),
+                        },
+                    )
+                }
+                liquidity::Kind::KyberSwap(route) => {
+                    // Represent KyberSwap routes as limit orders for the solver
+                    solvers_dto::auction::Liquidity::LimitOrder(
+                        solvers_dto::auction::ForeignLimitOrder {
+                            id: liquidity.id.0.to_string(),
+                            address: route.router_address,
+                            gas_estimate: liquidity.gas.into(),
+                            hash: Default::default(),
+                            maker_token: route.token_out,
+                            taker_token: route.token_in,
+                            maker_amount: route.amount_out,
+                            taker_amount: route.amount_in,
+                            taker_token_fee_amount: 0.into(),
                         },
                     )
                 }

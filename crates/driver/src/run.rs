@@ -74,6 +74,7 @@ async fn run_with(args: cli::Args, addr_sender: Option<oneshot::Sender<SocketAdd
     let serve = Api {
         solvers: solvers(&config, &eth).await,
         liquidity: liquidity(&config, &eth).await,
+        liquidity_config: config.liquidity.clone(),
         liquidity_sources_notifier: liquidity_sources_notifier(&config, &eth),
         simulator: simulator(&config, &eth),
         mempools: Mempools::try_new(

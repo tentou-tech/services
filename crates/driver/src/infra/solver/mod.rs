@@ -35,6 +35,8 @@ use {
 
 pub mod dto;
 
+pub mod kyberswap;
+
 // TODO At some point I should be checking that the names are unique, I don't
 // think I'm doing that.
 /// The solver name. The user can configure this to be anything that they like.
@@ -137,6 +139,9 @@ pub struct Config {
     /// Defines at which block the liquidity needs to be fetched on /solve
     /// requests.
     pub fetch_liquidity_at_block: infra::liquidity::AtBlock,
+    /// If enabled, driver generates solutions directly using KyberSwap routes
+    /// without calling the solver engine.
+    pub kyberswap_only: bool,
 }
 
 impl Solver {
@@ -225,6 +230,11 @@ impl Solver {
 
     pub fn fetch_liquidity_at_block(&self) -> infra::liquidity::AtBlock {
         self.config.fetch_liquidity_at_block.clone()
+    }
+
+    /// Whether this solver uses KyberSwap-only mode (generates solutions directly).
+    pub fn is_kyberswap_only(&self) -> bool {
+        self.config.kyberswap_only
     }
 
     /// Make a POST request instructing the solver to solve an auction.
@@ -387,6 +397,8 @@ pub enum Error {
     Deserialize(#[from] serde_json::Error),
     #[error("solver dto error: {0}")]
     Dto(#[from] dto::Error),
+    #[error("other error: {0}")]
+    Other(String),
 }
 
 impl Error {

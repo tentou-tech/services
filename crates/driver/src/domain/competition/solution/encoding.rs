@@ -51,6 +51,12 @@ pub fn tx(
     let mut post_interactions = solution.post_interactions.clone();
     let mut native_unwrap = eth::TokenAmount(eth::U256::zero());
 
+    tracing::debug!(
+        "solution clearing prices = {:#?}",
+        solution.clearing_prices()
+    );
+    tracing::debug!("solution trades = {:#?}", solution.trades());
+    
     // Encode uniform clearing price vector
     for (token, amount) in solution
         .clearing_prices()
@@ -170,7 +176,10 @@ pub fn tx(
         interactions.push(approve(&approval.0))
     }
 
-    tracing::debug!("interactions after encoding allowances = {:#?}", interactions.clone());
+    tracing::debug!(
+        "interactions after encoding allowances = {:#?}",
+        interactions.clone()
+    );
 
     // Encode interactions
     let slippage = slippage::Parameters {
@@ -225,7 +234,7 @@ pub fn tx(
             ],
         )
         .into_inner();
-    
+
     tracing::debug!("settlement tx = {:#?}", tx);
 
     // Encode the auction id into the calldata
@@ -294,6 +303,7 @@ pub fn liquidity_interaction(
             .swap(&input, &output, &settlement.address().into())
             .ok(),
         liquidity::Kind::ZeroEx(limit_order) => limit_order.to_interaction(&input).ok(),
+        liquidity::Kind::KyberSwap(route) => route.to_interaction(&input).ok(),
     }
     .ok_or(Error::InvalidInteractionExecution(Box::new(
         liquidity.clone(),
