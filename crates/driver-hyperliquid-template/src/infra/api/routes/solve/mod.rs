@@ -258,7 +258,7 @@ fn create_domain_solution(
         };
         let signer = PrivateKeySigner::from_bytes(&alloy::primitives::FixedBytes(solver_key.as_ref().clone())).unwrap();
         let signature = futures::executor::block_on(signer.sign_hash(&message_hash)).unwrap();
-        let signature = serde_json::to_vec(&signature).unwrap();
+        let signature = signature.as_bytes().to_vec();
         
 
         let tokens = vec![

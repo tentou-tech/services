@@ -23,6 +23,8 @@ base-tokens = [
     "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2", # MKR
     "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", # WBTC
     "0x6810e776880C02933D47DB1b9fc05908e5386b96", # GNO
+    "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # WHYPE
+    "0xa9056c15938f9aff34cd497c722ce33db0c2fd57", # PURR
 ]
 
 [[liquidity.uniswap-v2]] # Uniswap V2 configuration
