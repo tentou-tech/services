@@ -6,11 +6,16 @@ use {
         }, 
     },
     futures::future::join_all,
-    driver::infra::{
-        self,
-        blockchain::{self, Ethereum},
-        cli::{self,Args}, 
-        config, liquidity, tokens, Solver
+    driver::{
+        domain::{
+            competition::{bad_tokens, order::app_data::AppDataRetriever},
+        },
+        infra::{
+            self,
+            blockchain::{self, Ethereum},
+            cli::{self,Args}, 
+            config, liquidity, tokens, Solver, notify
+        },
     },
     clap::Parser,
     std::{net::SocketAddr, sync::Arc, time::Duration},
@@ -48,18 +53,32 @@ async fn run_with(args: Args, addr_sender: Option<oneshot::Sender<SocketAddr>>) 
     let eth = ethereum(&config, ethrpc).await;
     let simulator = simulator(&config, &eth).await;
     let mempools = mempools(&config, &eth, &web3).await;
+    let app_data_retriever = match &config.app_data_fetching {
+        config::file::AppDataFetching::Enabled {
+            orderbook_url,
+            cache_size,
+        } => Some(AppDataRetriever::new(orderbook_url.clone(), *cache_size)),
+        config::file::AppDataFetching::Disabled => None,
+    };
     let api = Api{
         solvers: solvers(&config, &eth).await,
         liquidity: liquidity(&config, &eth).await,
+        liquidity_sources_notifier: liquidity_sources_notifier(&config, &eth),
         tokens: tokens::Fetcher::new(&eth),
-        eth,
+        eth: eth.clone(),
         simulator,
         mempools,
+        bad_token_detector: bad_tokens::simulation::Detector::new(
+            config.simulation_bad_token_max_age,
+            &eth,
+        ),
         addr: args.addr,
         addr_sender,
     }.serve(async{
         let _ = shutdown_receiver.await;
-    }
+    },
+    config.order_priority_strategies,
+    app_data_retriever,
     );
     futures::pin_mut!(api);
     tokio::select! {
@@ -134,6 +153,18 @@ async fn liquidity(config: &config::Config, eth: &Ethereum) -> liquidity::Fetche
     liquidity::Fetcher::try_new(eth, &config.liquidity)
         .await
         .expect("initialize liquidity fetcher")
+}
+
+fn liquidity_sources_notifier(
+    config: &config::Config,
+    eth: &Ethereum,
+) -> notify::liquidity_sources::Notifier {
+    let notifier_config = config
+        .liquidity_sources_notifier
+        .as_ref()
+        .unwrap_or(&notify::liquidity_sources::config::Config { liquorice: None });
+    notify::liquidity_sources::Notifier::try_new(notifier_config, eth.chain())
+        .expect("initialize notify sources notifier")
 }
 
 async fn simulator(config: &config::Config, eth: &Ethereum) -> driver::infra::Simulator {
