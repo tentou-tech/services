@@ -320,8 +320,8 @@ pub fn new(
                             hash: Default::default(),
                             maker_token: route.token_out,
                             taker_token: route.token_in,
-                            maker_amount: route.amount_out.into(),
-                            taker_amount: route.amount_in.into(),
+                            maker_amount: route.amount_out,
+                            taker_amount: route.amount_in,
                             taker_token_fee_amount: 0.into(),
                         },
                     )

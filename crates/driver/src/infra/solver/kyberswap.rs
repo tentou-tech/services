@@ -204,21 +204,6 @@ impl KyberSwapSolutionGenerator {
 
         let route_summary = self.api.get_routes(&request).await?;
 
-        // Build the route to get encoded data
-        // let build_request = shared::kyberswap_api::BuildRouteRequest {
-        //     route_summary: route_summary.clone(),
-        //     sender: self.settlement_contract,
-        //     recipient: self.settlement_contract,
-        //     slippage: 50, // 0.5% slippage
-        //     deadline: std::time::SystemTime::now()
-        //         .duration_since(std::time::UNIX_EPOCH)
-        //         .unwrap()
-        //         .as_secs()
-        //         + 300, // 5 minutes from now
-        // };
-
-        // let _build_response = self.api.build_route(&build_request).await?;
-
         Ok(route_summary)
     }
 
@@ -371,8 +356,7 @@ impl KyberSwapSolutionGenerator {
             self.weth,
             Some(eth::Gas(
                 eth::U256::from_dec_str(&route.gas)
-                    .unwrap_or_default()
-                    .into(),
+                    .unwrap_or_default(),
             )),
             crate::infra::config::file::FeeHandler::Driver,
             &HashSet::new(), // surplus_capturing_jit_order_owners

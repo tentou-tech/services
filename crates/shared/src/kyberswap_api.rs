@@ -9,32 +9,12 @@ use {
     anyhow::{Context, Result},
     ethcontract::{H160, U256},
     reqwest::{Client, ClientBuilder, StatusCode, Url},
-    serde::{Deserialize, Deserializer, Serialize},
+    serde::{Deserialize, Serialize},
     serde_with::{DisplayFromStr, serde_as},
     std::{str::FromStr, time::Duration},
     thiserror::Error,
     tracing::instrument,
 };
-
-/// Helper to deserialize f64 from either string or number
-fn deserialize_f64_from_string<'de, D>(deserializer: D) -> Result<f64, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde::de::Error;
-
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum StringOrFloat {
-        String(String),
-        Float(f64),
-    }
-
-    match StringOrFloat::deserialize(deserializer)? {
-        StringOrFloat::String(s) => s.parse().map_err(D::Error::custom),
-        StringOrFloat::Float(f) => Ok(f),
-    }
-}
 
 /// Helper to format H160 addresses for URL query parameters
 fn addr2str(addr: H160) -> String {
@@ -341,7 +321,6 @@ impl DefaultKyberSwapApi {
         &self,
         url: Url,
     ) -> Result<T, KyberSwapApiError> {
-
         let request_builder = self
             .client
             .get(url.clone())
@@ -441,7 +420,7 @@ impl KyberSwapApi for DefaultKyberSwapApi {
         tracing::debug!("url: {}", url.to_string());
 
         let response: RouteResponse = self.request(url).await?;
-        
+
         // Check if the API returned an error code
         if response.code != 0 {
             return Err(KyberSwapApiError::InvalidResponse(format!(
@@ -449,7 +428,7 @@ impl KyberSwapApi for DefaultKyberSwapApi {
                 response.code, response.message
             )));
         }
-        
+
         Ok(response.data.route_summary)
     }
 
@@ -515,7 +494,7 @@ pub enum KyberSwapApiError {
 
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, sync::Arc};
+    use std::str::FromStr;
 
     use super::*;
 
@@ -642,20 +621,44 @@ mod tests {
         let route3 = result3.unwrap();
         let route4 = result4.unwrap();
 
-        assert_eq!(route1.token_in, "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb");
-        assert_eq!(route1.token_out, "0xb88339cb7199b77e23db6e890353e22632ba630f");
+        assert_eq!(
+            route1.token_in,
+            "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb"
+        );
+        assert_eq!(
+            route1.token_out,
+            "0xb88339cb7199b77e23db6e890353e22632ba630f"
+        );
         assert!(!route1.route.is_empty(), "Route 1 should have steps");
 
-        assert_eq!(route2.token_in, "0x5555555555555555555555555555555555555555");
-        assert_eq!(route2.token_out, "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb");
+        assert_eq!(
+            route2.token_in,
+            "0x5555555555555555555555555555555555555555"
+        );
+        assert_eq!(
+            route2.token_out,
+            "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb"
+        );
         assert!(!route2.route.is_empty(), "Route 2 should have steps");
 
-        assert_eq!(route3.token_in, "0x5555555555555555555555555555555555555555");
-        assert_eq!(route3.token_out, "0xb88339cb7199b77e23db6e890353e22632ba630f");
+        assert_eq!(
+            route3.token_in,
+            "0x5555555555555555555555555555555555555555"
+        );
+        assert_eq!(
+            route3.token_out,
+            "0xb88339cb7199b77e23db6e890353e22632ba630f"
+        );
         assert!(!route3.route.is_empty(), "Route 3 should have steps");
 
-        assert_eq!(route4.token_in, "0x5555555555555555555555555555555555555555");
-        assert_eq!(route4.token_out, "0xb88339cb7199b77e23db6e890353e22632ba630f");
+        assert_eq!(
+            route4.token_in,
+            "0x5555555555555555555555555555555555555555"
+        );
+        assert_eq!(
+            route4.token_out,
+            "0xb88339cb7199b77e23db6e890353e22632ba630f"
+        );
         assert!(!route4.route.is_empty(), "Route 4 should have steps");
 
         println!("All 4 parallel requests completed successfully!");

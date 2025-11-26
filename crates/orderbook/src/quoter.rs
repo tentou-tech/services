@@ -86,7 +86,6 @@ impl QuoteHandler {
             additional_gas: app_data.inner.protocol.hooks.gas_limit(),
             timeout: request.timeout,
         };
-        println!("params quote: {:#?}", params);
 
         let quote = match request.price_quality {
             PriceQuality::Optimal | PriceQuality::Verified => {

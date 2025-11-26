@@ -26,7 +26,6 @@ use {
 };
 
 pub mod balancer;
-pub mod kyberswap;
 pub mod swapr;
 pub mod uniswap;
 pub mod zeroex;
@@ -108,16 +107,6 @@ impl Fetcher {
         )
         .await?;
 
-        // let kyberswap: Vec<_> = future::try_join_all(
-        //     config
-        //         .kyberswap
-        //         .as_ref()
-        //         .map(|config| kyberswap::collector(eth, config))
-        //         .into_iter()
-        //         .collect::<Vec<_>>(),
-        // )
-        // .await?;
-
         let base_tokens = BaseTokens::new(
             eth.contracts().weth().address(),
             &config
@@ -191,11 +180,6 @@ impl Fetcher {
                     Liquidity::BalancerWeighted(pool) => balancer::v2::weighted::to_domain(id, pool),
                     Liquidity::BalancerStable(pool) => balancer::v2::stable::to_domain(id, pool),
                     Liquidity::LimitOrder(pool) => zeroex::to_domain(id, pool),
-                    // Liquidity::LimitOrder(pool) => {
-                    //     // Try KyberSwap first, then fall back to ZeroEx
-                    //     kyberswap::to_domain(id, pool.clone())
-                    //         .or_else(|_| zeroex::to_domain(id, pool))
-                    // }
                     Liquidity::Concentrated(pool) => uniswap::v3::to_domain(id, pool),
                 }
                 // Ignore "bad" liquidity - this allows the driver to continue
