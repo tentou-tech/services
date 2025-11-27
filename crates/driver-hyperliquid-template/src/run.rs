@@ -63,6 +63,7 @@ async fn run_with(args: Args, addr_sender: Option<oneshot::Sender<SocketAddr>>) 
     let api = Api{
         solvers: solvers(&config, &eth).await,
         liquidity: liquidity(&config, &eth).await,
+        liquidity_config: config.liquidity.clone(),
         liquidity_sources_notifier: liquidity_sources_notifier(&config, &eth),
         tokens: tokens::Fetcher::new(&eth),
         eth: eth.clone(),

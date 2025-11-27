@@ -38,6 +38,7 @@ pub struct Api {
     pub solvers: Vec<Solver>,
     pub eth: Ethereum,
     pub liquidity: liquidity::Fetcher,
+    pub liquidity_config: liquidity::Config,
     pub liquidity_sources_notifier: notify::liquidity_sources::Notifier,
     pub tokens: tokens::Fetcher,
     pub simulator: Simulator,
@@ -81,8 +82,12 @@ impl State {
         &self.0.settlements
     }
     
-    pub(crate) fn competition(&self) -> &competition::Competition {
+    fn competition(&self) -> &competition::Competition {
         &self.0.competition
+    }
+
+    fn liquidity_config(&self) -> &liquidity::Config {
+        &self.0.liquidity_config
     }
 }
 
@@ -90,6 +95,7 @@ struct Inner {
     eth: Ethereum,
     solver: Solver,
     liquidity: liquidity::Fetcher,
+    liquidity_config: liquidity::Config,
     tokens: tokens::Fetcher,
     simulator: Simulator,
     mempools: Mempools,
@@ -168,6 +174,7 @@ impl Api {
                 eth: self.eth.clone(),
                 solver: solver.clone(),
                 liquidity: self.liquidity.clone(),
+                liquidity_config: self.liquidity_config.clone(),
                 tokens: self.tokens.clone(),
                 simulator: self.simulator.clone(),
                 mempools: self.mempools.clone(),
@@ -176,6 +183,7 @@ impl Api {
                     solver,
                     self.eth.clone(),
                     self.liquidity.clone(),
+                    self.liquidity_config.clone(),
                     self.liquidity_sources_notifier.clone(),
                     self.simulator.clone(),
                     self.mempools.clone(),

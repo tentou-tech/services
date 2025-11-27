@@ -12,6 +12,8 @@ use {
         util::Bytes,
     },
     solvers_dto::auction::Auction,
+    std::sync::Arc,
+    driver::infra::observe::solved,
     std::collections::{HashMap, HashSet},
     tracing::Instrument,
     alloy::{
@@ -32,64 +34,80 @@ async fn route(
     req: String,
 ) -> Result<axum::Json<dto::SolveResponse>, (hyper::StatusCode, axum::Json<Error>)> {
     let handle_request = async {
-        let auction_dto: Auction = serde_json::from_str(&req).map_err(|e| {
-            tracing::error!(?e, "Failed to parse auction");
-            competition::Error::MalformedRequest
-        })?;
-
-        // 1. Convert DTO Auction to Domain Auction (Simplified for this use case)
-        let domain_orders = map_orders(&auction_dto.orders);
-        let domain_tokens = map_tokens(&auction_dto.tokens);
-        let deadline = chrono::Utc::now() + chrono::Duration::seconds(60); // Mock deadline
-
-        let auction_id = auction_dto.id
-            .and_then(|id| competition::auction::Id::try_from(id).ok())
-            .unwrap_or(competition::auction::Id(0));
-
-        let domain_auction = competition::Auction::new(
-             Some(auction_id),
-             domain_orders,
-             domain_tokens.into_iter(),
-             deadline,
-             state.eth(),
-             HashSet::new(),
-        ).await.map_err(|e| {
-            tracing::error!(?e, "Failed to create domain auction");
-            competition::Error::MalformedRequest
-        })?;
-
-        // 2. Create Domain Solution with Vault interactions
-        let (solved, domain_solution) = create_domain_solution(&domain_auction, state.solver(), state.eth())?;
-
-        // 3. Encode into Settlement
-        let settlement = domain_solution
-            .encode(
-                &domain_auction,
-                state.eth(),
-                state.simulator(),
-                state.solver().solver_native_token(),
-            )
-            .await
-            .map_err(|e| {
-                tracing::error!(?e, "Failed to encode settlement");
-                competition::Error::MalformedRequest
-            })?;
-
-        // 4. Store in Competition
-        {
-            let mut settlements = state.competition().settlements.lock().unwrap();
-            settlements.push_back(settlement);
-        }
-
+        let competition = state.competition();
+        let result = competition.solve(Arc::new(req)).await;
+        // Solving takes some time, so there is a chance for the settlement queue to
+        // have capacity again.
+        competition.ensure_settle_queue_capacity()?;
+        solved(state.solver().name(), &result);
         Ok(axum::Json(dto::SolveResponse::new(
-            Some(solved),
-            state.solver(),
+            result?,
+            &competition.solver,
         )))
     };
 
     handle_request
         .instrument(tracing::info_span!("/solve", solver = %state.solver().name(), auction_id = tracing::field::Empty))
         .await
+    // let handle_request = async {
+    //     let auction_dto: Auction = serde_json::from_str(&req).map_err(|e| {
+    //         tracing::error!(?e, "Failed to parse auction");
+    //         competition::Error::MalformedRequest
+    //     })?;
+
+    //     // 1. Convert DTO Auction to Domain Auction (Simplified for this use case)
+    //     let domain_orders = map_orders(&auction_dto.orders);
+    //     let domain_tokens = map_tokens(&auction_dto.tokens);
+    //     let deadline = chrono::Utc::now() + chrono::Duration::seconds(60); // Mock deadline
+
+    //     let auction_id = auction_dto.id
+    //         .and_then(|id| competition::auction::Id::try_from(id).ok())
+    //         .unwrap_or(competition::auction::Id(0));
+
+    //     let domain_auction = competition::Auction::new(
+    //          Some(auction_id),
+    //          domain_orders,
+    //          domain_tokens.into_iter(),
+    //          deadline,
+    //          state.eth(),
+    //          HashSet::new(),
+    //     ).await.map_err(|e| {
+    //         tracing::error!(?e, "Failed to create domain auction");
+    //         competition::Error::MalformedRequest
+    //     })?;
+
+    //     // 2. Create Domain Solution with Vault interactions
+    //     let (solved, domain_solution) = create_domain_solution(&domain_auction, state.solver(), state.eth())?;
+
+    //     // 3. Encode into Settlement
+    //     let settlement = domain_solution
+    //         .encode(
+    //             &domain_auction,
+    //             state.eth(),
+    //             state.simulator(),
+    //             state.solver().solver_native_token(),
+    //         )
+    //         .await
+    //         .map_err(|e| {
+    //             tracing::error!(?e, "Failed to encode settlement");
+    //             competition::Error::MalformedRequest
+    //         })?;
+
+    //     // 4. Store in Competition
+    //     {
+    //         let mut settlements = state.competition().settlements.lock().unwrap();
+    //         settlements.push_back(settlement);
+    //     }
+
+    //     Ok(axum::Json(dto::SolveResponse::new(
+    //         Some(solved),
+    //         state.solver(),
+    //     )))
+    // };
+
+    // handle_request
+    //     .instrument(tracing::info_span!("/solve", solver = %state.solver().name(), auction_id = tracing::field::Empty))
+    //     .await
 }
 
 fn map_orders(orders: &[solvers_dto::auction::Order]) -> Vec<competition::Order> {
