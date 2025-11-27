@@ -1,4 +1,5 @@
 tx-gas-limit = "45000000"
+disable-access-list-simulation = true
 
 [[solver]]
 name = "baseline" # Arbitrary name given to this solver, must be unique
