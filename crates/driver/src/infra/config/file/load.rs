@@ -143,6 +143,7 @@ pub async fn load(chain: Chain, path: &Path) -> infra::Config {
                     file::AtBlock::Finalized => liquidity::AtBlock::Finalized,
                 },
                 kyberswap_only: solver_config.kyberswap_only,
+                hyperliquid_only: solver_config.hyperliquid_only,
             }
         }))
         .await,
@@ -318,6 +319,12 @@ pub async fn load(chain: Chain, path: &Path) -> infra::Config {
                     cache_ttl: config.cache_ttl,
                     client_id: config.client_id,
                 }),
+            hyperliquid: config
+                .liquidity
+                .hyperliquid
+                .map(|config| liquidity::config::HyperLiquid {
+                    vault_address: config.vault_address.into(),
+                })
         },
         liquidity_sources_notifier: config.liquidity_sources_notifier.map(|notifier| {
             notify::liquidity_sources::config::Config {

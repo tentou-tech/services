@@ -20,6 +20,7 @@ async fn route(
     // as possible because many requests don't have to be parsed at all
     req: String,
 ) -> Result<axum::Json<dto::SolveResponse>, (hyper::StatusCode, axum::Json<Error>)> {
+    tracing::info!(%req, "received solve request");
     let handle_request = async {
         let competition = state.competition();
         let result = competition.solve(Arc::new(req)).await;

@@ -7,6 +7,9 @@ endpoint = "http://localhost:9001"
 absolute-slippage = "40000000000000000" # Denominated in wei, optional
 relative-slippage = "0.1" # Percentage in the [0, 1] range
 account = "0x6f8381267819901534cf01edbb6763e816b38c57a34dda381c3a251de5a57c7d" # Known test private key
+# old: 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
+# 0x6f8381267819901534cf01edbb6763e816b38c57a34dda381c3a251de5a57c7d
+hyperliquid-only = true
 
 [submission]
 gas-price-cap = "1000000000000"
@@ -30,3 +33,6 @@ base-tokens = [
 
 [[liquidity.uniswap-v2]] # Uniswap V2 configuration
 preset = "uniswap-v2"
+
+[liquidity.hyperliquid]
+vault-address = "0x24be1e421e38a9ef728c5c36a69d724820ab58ed"
