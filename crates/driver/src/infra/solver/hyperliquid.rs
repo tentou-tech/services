@@ -14,12 +14,19 @@ use {
     },
     anyhow::{Context, Result},
     ethcontract::{H160, U256},
-    num::{BigRational, ToPrimitive},
     std::{collections::HashMap, sync::Arc},
     tracing::instrument,
-    
-    alloy::{self, sol, hex::FromHex, primitives::{Address, B256}, signers::local::PrivateKeySigner, sol_types::SolValue, },
+    alloy::{
+        self, sol, hex::FromHex, 
+        primitives::{Address, U256 as alloyU256}, 
+        sol_types::{SolValue, SolCall}, 
+        signers::{local::PrivateKeySigner, Signer},
+    },
 };
+
+sol! {
+    function exchange(bytes orderUid, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut, uint32 validTo, uint256 nonce, bytes[] calldata signatures) external payable;
+}
 
 /// Generates solutions directly from HyperLiquid routes for orders in an auction.
 pub struct HyperLiquidSolutionGenerator {
@@ -168,24 +175,6 @@ impl HyperLiquidSolutionGenerator {
             std::collections::HashSet,
         };
 
-        // let build_request = BuildRouteRequest {
-        //     route_summary: route.clone(),
-        //     slippage: slippage_bps,
-        //     sender: self.settlement_contract,
-        //     recipient: self.settlement_contract,
-        //     deadline: std::time::SystemTime::now()
-        //         .duration_since(std::time::UNIX_EPOCH)
-        //         .unwrap()
-        //         .as_secs()
-        //         + 300,
-        // };
-
-        // let build_response = self
-        //     .api
-        //     .build_route(&build_request)
-        //     .await
-        //     .context("Failed to build route")?;
-
         let executed = match order.side {
             order::Side::Sell => order::TargetAmount(order.sell.amount.0),
             order::Side::Buy => order::TargetAmount(order.buy.amount.0),
@@ -205,8 +194,7 @@ impl HyperLiquidSolutionGenerator {
 
         let vault_address = self.vault_address;
         // Use the existing numeric amounts from the order and provide default
-        // values for call_data and gas since route/build_response is not used here.
-        let input_amount = order.sell.amount.0;
+
         let output_amount = match order.side {
             order::Side::Sell => order.buy.amount.0,
             order::Side::Buy => order.sell.amount.0,
@@ -220,38 +208,43 @@ impl HyperLiquidSolutionGenerator {
         let valid_to = order.valid_to;
         let chain_id = self.eth.chain().id();
         let nonce: u64 = 0; 
-        sol! {
-            function swap(uint amount0Out, uint amount1Out, address to) external;
-        }
-        let swap_calldata = swapCall {
-            amount0Out: alloy::primitives::U256::from(1000000000000000000_u128),
-            amount1Out: alloy::primitives::U256::from(1000000000000000000_u128),
-            to: Address::from_hex("0x0000000000000000000000000000000000000000")?,
-        }.abi_encode();
-
-        let func = Function::parse(
-            "function exchange(bytes32 orderUid, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut, uint32 validTo, uint256 nonce, bytes[] calldata signatures) external payable;")?;
-        let input = vec![
-            DynSolValue::Uint(uint!(100000000000000000_U256), 256),
-            DynSolValue::Uint(U256::ZERO, 256),
-            DynSolValue::Address(Address::from([0x42; 20])),
-            DynSolValue::Bytes(Bytes::new().into()),
-        ];
-
-        let encoded = (
-            order_id,
-            token_in,
-            amount_in,
-            token_out,
-            amount_out,
-            valid_to,
-            chain_id,
-            nonce,
-            vault_address,
-            self.settlement_contract,
+        
+        let payload = (
+            order_id.0.0.to_vec(),
+            alloyU256::from_limbs(amount_in.0),
+            Address::from_slice(token_in.0.0.as_bytes()),
+            alloyU256::from_limbs(amount_out.0),
+            Address::from_slice(token_out.0.0.as_bytes()),
+            alloyU256::from(u32::from((valid_to))),
+            alloyU256::from(chain_id),
+            alloyU256::from(nonce),
+            Address::from(vault_address.0),
+            Address::from(self.settlement_contract.0),
         ).abi_encode();
 
-        let encoded: Vec<u8> = Vec::new();
+        let solver_key = if let ethcontract::Account::Offline(key, _) = &self.solver.config().account {
+            key
+        } else {
+            panic!("Solver account is not an offline account with a private key.");
+        };
+        let signer = PrivateKeySigner::from_bytes(&alloy::primitives::FixedBytes(solver_key.as_ref().clone())).unwrap();
+        let signature = signer.sign_message(&payload).await.unwrap();
+        
+        
+        let exchange_calldata = exchangeCall{
+            orderUid: order_id.0.0.to_vec().into(),
+            amountIn: alloyU256::from_limbs(amount_in.0),
+            tokenIn: Address::from_slice(token_in.0.0.as_bytes()),
+            amountOut: alloyU256::from_limbs(amount_out.0),
+            tokenOut: Address::from_slice(token_out.0.0.as_bytes()),
+            validTo: valid_to.into(),
+            nonce: alloyU256::from(nonce),
+            signatures: vec![signature.as_bytes().to_vec().into()],
+        }.abi_encode();
+
+        
+
+        let encoded: Vec<u8> = exchange_calldata;
 
         let interaction = Interaction::Custom(solution::interaction::Custom {
             target: eth::ContractAddress(vault_address),
@@ -264,7 +257,7 @@ impl HyperLiquidSolutionGenerator {
             })],
             inputs: vec![eth::Asset {
                 token: order.sell.token,
-                amount: eth::TokenAmount(input_amount),
+                amount: eth::TokenAmount(amount_in),
             }],
             outputs: vec![eth::Asset {
                 token: order.buy.token,
@@ -296,8 +289,6 @@ impl HyperLiquidSolutionGenerator {
 }
 
 // --- API Client Implementation ---
-
-use alloy::{dyn_abi::DynSolValue, json_abi::Function, primitives::Bytes};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]

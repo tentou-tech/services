@@ -52,7 +52,7 @@ const message = {
   sellAmount: 1000000000000000n, // 0.001 with 18 decimals
   buyAmount: 1000000000000000n, // 0.001 with 18 decimals
   validTo: validTo,
-  appData: '0x5ea3b5f8b085caaec8fdf9acb7a23dc3e326c8d773d2f9d1be051b74cd3cbcf6',
+  appData: '0x2777e73a764bccd87db7421965088f9dffae9e67aa72caf85671af3c7d5f0f91',
   feeAmount: 0n,
   kind: 'sell',
   partiallyFillable: false,
