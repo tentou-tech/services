@@ -17,7 +17,7 @@ use {
     std::{collections::HashMap, sync::Arc},
     tracing::instrument,
     alloy::{
-        self, sol, hex::FromHex, 
+        self, sol, 
         primitives::{Address, U256 as alloyU256}, 
         sol_types::{SolValue, SolCall}, 
         signers::{local::PrivateKeySigner, Signer},
@@ -69,45 +69,6 @@ impl HyperLiquidSolutionGenerator {
         tracing::info!("Solving auction orders length: {}", auction.orders().len());
 
         for order in auction.orders() {
-            let (token_in, token_out, amount_in) = match order.side {
-                order::Side::Sell => (
-                    order.sell.token.as_erc20(self.weth),
-                    order.buy.token.as_erc20(self.weth),
-                    order.sell.amount.0,
-                ),
-                order::Side::Buy => (
-                    order.buy.token.as_erc20(self.weth),
-                    order.sell.token.as_erc20(self.weth),
-                    order.buy.amount.0,
-                ),
-            };
-
-            // let mut route = match self.fetch_route(token_in, token_out, amount_in).await {
-            //     Ok(route) => route,
-            //     Err(err) => {
-            //         tracing::warn!(?err, ?token_in, ?token_out, "Failed to fetch HyperLiquid route");
-            //         continue;
-            //     }
-            // };
-
-            // let slippage_bps = Self::slippage_to_bps(&self.solver.slippage().relative);
-            // let route_amount_out = eth::U256::from_dec_str(&route.amount_out)
-            //     .unwrap_or_default()
-            //     .saturating_mul(U256::from(10_000 - slippage_bps))
-            //     .checked_div(U256::from(10_000))
-            //     .unwrap_or_default();
-
-            // let order_amount_out = match order.side {
-            //     order::Side::Sell => order.buy.amount.0,
-            //     order::Side::Buy => order.sell.amount.0,
-            // };
-
-            // if !self.satisfies_order(route_amount_out, order_amount_out, order.side) {
-            //     continue;
-            // }
-
-            // route.amount_out = route_amount_out.to_string();
-
             match self
                 .create_solution(auction, order, solution_id_counter)
                 .await
@@ -123,33 +84,6 @@ impl HyperLiquidSolutionGenerator {
         }
 
         Ok(solutions)
-    }
-
-    async fn fetch_route(
-        &self,
-        token_in: TokenAddress,
-        token_out: TokenAddress,
-        amount_in: eth::U256,
-    ) -> Result<RouteSummary> {
-        let request = RouteRequest {
-            token_in: token_in.0.0,
-            token_out: token_out.0.0,
-            amount_in,
-        };
-
-        self.api.get_routes(&request).await
-    }
-
-    fn satisfies_order(
-        &self,
-        route_amount_out: eth::U256,
-        order_amount_out: eth::U256,
-        side: order::Side,
-    ) -> bool {
-        match side {
-            order::Side::Sell => route_amount_out >= order_amount_out,
-            order::Side::Buy => route_amount_out <= order_amount_out,
-        }
     }
 
     async fn fake_prices(&self, auction: &Auction) -> Result<HashMap<TokenAddress, U256>> {
@@ -190,6 +124,7 @@ impl HyperLiquidSolutionGenerator {
             anyhow::anyhow!("Failed to create fulfillment: {}", err)
         })?;
 
+        // TODO: Need to call API to get prices. Currently all prices are fake
         let prices: HashMap<TokenAddress, U256> = self.fake_prices(_auction).await?;
 
         let vault_address = self.vault_address;
@@ -215,7 +150,7 @@ impl HyperLiquidSolutionGenerator {
             Address::from_slice(token_in.0.0.as_bytes()),
             alloyU256::from_limbs(amount_out.0),
             Address::from_slice(token_out.0.0.as_bytes()),
-            alloyU256::from(u32::from((valid_to))),
+            alloyU256::from(u32::from(valid_to)),
             alloyU256::from(chain_id),
             alloyU256::from(nonce),
             Address::from(vault_address.0),

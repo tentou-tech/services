@@ -34,13 +34,8 @@ async fn route(
             observe::invalid_dto(err, "order");
         }).map_err(|err| -> (hyper::StatusCode, axum::Json<Error>) { Kind::from(err).into() })?;
         observe::quoting(&order);
-        
-        let result = custom_quote(
-            &order,
-            state.eth(),
-            state.solver(),
-            state.tokens(),
-        ).await;
+
+        let result = order.quote(state.eth(), state.solver(), state.liquidity(), state.liquidity_config(), state.tokens()).await;
 
         observe::quoted(state.solver().name(), &order, &result);
         let quote = result.map_err(|err| -> (hyper::StatusCode, axum::Json<Error>) { Kind::from(err).into() })?;

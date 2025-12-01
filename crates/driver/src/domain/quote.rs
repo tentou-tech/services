@@ -128,6 +128,44 @@ impl Order {
                     return Err(Error::Solver(infra::solver::Error::Other("KyberSwap-only mode requires KyberSwap liquidity configuration".to_string())));
                 }
             }
+        } else if solver.is_hyperliquid_only() {
+            match &liquidity_config.hyperliquid {
+                Some(hyperliquid_config) => {
+                    tracing::info!("Hyperliquid mode enabled for quote");
+                    // Generate quote using Hyperliquid solver
+                let hyperliquid_solver = infra::solver::hyperliquid::HyperLiquidSolutionGenerator::new(
+                    eth,
+                    hyperliquid_config,
+                    solver.clone(),
+                ).map_err(|err| {
+                    tracing::error!(?err, "Failed to create Hyperliquid solution generator for quote");
+                    Error::Solver(infra::solver::Error::Other(err.to_string()))
+                })?;
+
+                // Create a fake auction with the order
+                let auction = self
+                    .fake_auction(eth, tokens, solver.quote_using_limit_orders())
+                    .await?;
+                // Generate solutions using Hyperliquid
+                let solutions = hyperliquid_solver.solve(&auction).await.map_err(|err| {
+                    tracing::error!(?err, "Hyperliquid quote generation failed");
+                    Error::Solver(infra::solver::Error::Other(err.to_string()))
+                })?;
+
+                Quote::try_new(
+                    eth,
+                    solutions
+                        .into_iter()
+                        .find(|solution| !solution.is_empty(auction.surplus_capturing_jit_order_owners()))
+                        .ok_or(QuotingFailed::NoSolutions)?,
+                )
+                    }
+                    None => {
+                        tracing::error!("Hyperliquid mode enabled but no Hyperliquid config found for quote");
+                        return Err(Error::Solver(infra::solver::Error::Other("Hyperliquid mode requires Hyperliquid liquidity configuration".to_string())));
+                    }
+                }
+            
         } else {
             // Normal flow: fetch liquidity and call solver engine
             let liquidity = match solver.liquidity() {
