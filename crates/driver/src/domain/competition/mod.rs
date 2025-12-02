@@ -315,6 +315,8 @@ impl Competition {
                     Err(_err) if id.solutions().len() > 1 => None,
                     Err(err) => {
                         self.bad_tokens.encoding_failed(&token_pairs);
+                        // add log token pairs to the error report
+                        print!("{:?}", token_pairs);
                         observe::encoding_failed(self.solver.name(), &id, &err);
                         notify::encoding_failed(&self.solver, auction.id(), &id, &err);
                         None

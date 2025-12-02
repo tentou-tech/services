@@ -18,14 +18,15 @@ use {
     tracing::instrument,
     alloy::{
         self, sol, 
-        primitives::{Address, U256 as alloyU256}, 
+        primitives::{Address, U256 as alloyU256, keccak256, hex}, 
         sol_types::{SolValue, SolCall}, 
         signers::{local::PrivateKeySigner, Signer},
     },
+    std::time::{SystemTime, UNIX_EPOCH},
 };
 
 sol! {
-    function exchange(bytes orderUid, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut, uint32 validTo, uint256 nonce, bytes[] calldata signatures) external payable;
+    function exchange(bytes32 orderUid, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut, uint32 validTo, uint256 nonce, bytes[] calldata signatures) external payable;
 }
 
 /// Generates solutions directly from HyperLiquid routes for orders in an auction.
@@ -74,6 +75,9 @@ impl HyperLiquidSolutionGenerator {
                 .await
             {
                 Ok(solution) => {
+                    // print solution for debugging
+                    tracing::debug!("Created solution for order UID: {:?}", order.uid);
+                    println!("{:#?}", solution); 
                     solutions.push(solution);
                     solution_id_counter += 1;
                 }
@@ -135,27 +139,32 @@ impl HyperLiquidSolutionGenerator {
             order::Side::Buy => order.sell.amount.0,
         };
 
-        let order_id = order.uid;
+        let order_id = keccak256(order.uid.0.0);
         let token_in = order.sell.token;
         let amount_in = order.sell.amount.0;
         let token_out = order.buy.token;
         let amount_out = order.buy.amount.0;
         let valid_to = order.valid_to;
         let chain_id = self.eth.chain().id();
-        let nonce: u64 = 0; 
+        // let nonce: u64 = 0; 
+        let nonce: u64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
         
         let payload = (
-            order_id.0.0.to_vec(),
-            alloyU256::from_limbs(amount_in.0),
+            order_id,
             Address::from_slice(token_in.0.0.as_bytes()),
-            alloyU256::from_limbs(amount_out.0),
+            alloyU256::from_limbs(amount_in.0),
             Address::from_slice(token_out.0.0.as_bytes()),
-            alloyU256::from(u32::from(valid_to)),
+            alloyU256::from_limbs(amount_out.0),
+            u32::from(valid_to),
             alloyU256::from(chain_id),
             alloyU256::from(nonce),
             Address::from(vault_address.0),
             Address::from(self.settlement_contract.0),
-        ).abi_encode();
+        );
+        let payload_encode = keccak256(payload.abi_encode());
 
         let solver_key = if let ethcontract::Account::Offline(key, _) = &self.solver.config().account {
             key
@@ -163,16 +172,20 @@ impl HyperLiquidSolutionGenerator {
             panic!("Solver account is not an offline account with a private key.");
         };
         let signer = PrivateKeySigner::from_bytes(&alloy::primitives::FixedBytes(solver_key.as_ref().clone())).unwrap();
-        let signature = signer.sign_message(&payload).await.unwrap();
+        let signature = signer.sign_message(&payload_encode).await.unwrap();
+        println!("Payload: {:?}", payload);
+        print!("Payload (hex): {}\n", hex::encode_prefixed(&payload_encode));
+        println!("Signer: {:?}", signer);
+        println!("Signature (hex): {}", hex::encode_prefixed(signature.as_bytes()));
         
         
         let exchange_calldata = exchangeCall{
-            orderUid: order_id.0.0.to_vec().into(),
+            orderUid: order_id,
             amountIn: alloyU256::from_limbs(amount_in.0),
             tokenIn: Address::from_slice(token_in.0.0.as_bytes()),
             amountOut: alloyU256::from_limbs(amount_out.0),
             tokenOut: Address::from_slice(token_out.0.0.as_bytes()),
-            validTo: valid_to.into(),
+            validTo: u32::from(valid_to),
             nonce: alloyU256::from(nonce),
             signatures: vec![signature.as_bytes().to_vec().into()],
         }.abi_encode();
