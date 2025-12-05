@@ -91,6 +91,7 @@ When the `driver-hyperliquid-template` receives a `POST /settle` request, the `S
 By following this pattern, the `driver-hyperliquid-template` can effectively integrate with external trading systems that rely on a `vault` for secure and efficient token swaps.
 
 ## Sequence Diagram
+### Overview
 
 ```mermaid
 sequenceDiagram
@@ -152,3 +153,90 @@ sequenceDiagram
     CowSystem-->>User: Notify swap completion
     deactivate CowSystem
 ```
+
+## HyperLiquid Solution Generator Implementation (`hyperliquid.rs`)
+The `HyperLiquidSolutionGenerator` struct in `@crates/driver/src/infra/solver/hyperliquid.rs` provides a concrete implementation of a solver strategy that interacts with the HyperLiquid ecosystem via a Vault contract.
+
+### **Important Note on Implementation**: Any specific logic or changes related to the HyperLiquid solver *must* be implemented within the `HyperLiquidSolutionGenerator` struct in [`crates/driver/src/infra/solver/hyperliquid.rs`](../driver/src/infra/solver/hyperliquid.rs). This ensures that all HyperLiquid-specific functionalities are centralized and managed from their designated source.
+
+### Key Responsibilities
+
+1.  **Price Resolution**:
+    -   It determines the exchange rate between the `sellToken` and `buyToken`.
+    -   *Current Implementation Note*: The current code uses `fake_prices` for demonstration. In a production environment, this would query the `HyperLiquidApi` to get real-time market rates.
+    -   **Building Quotes**: There are two primary approaches for building quotes:
+        1.  **On External Trading System**: The driver can directly query the external trading system (e.g., Hyperliquid) for a quote.
+            ```mermaid
+            sequenceDiagram
+                Driver->>TradingSystem: Get quote
+                activate TradingSystem
+                TradingSystem->>TradingSystem: Build quote on External Trading System
+                TradingSystem-->>Driver: Return quote details
+                deactivate TradingSystem
+            ```
+        2.  **On Driver**: The driver can also build a quote internally by fetching the latest limit orders from the external trading system and constructing the quote itself.
+            ```mermaid
+            sequenceDiagram
+                loop
+                    Driver->>TradingSystem: Get latest limit orders
+                    activate TradingSystem
+                    TradingSystem-->>Driver: Return limit orders
+                    deactivate TradingSystem
+                    Driver->>Driver: Build quote from limit orders
+                end
+            ```
+
+2.  **Solution Construction**:
+    -   For each order in an auction, it calculates the `amountOut` based on the resolved prices.
+    -   It constructs a `Fulfillment` object representing the trade.
+
+3.  **Interaction Encoding (The `exchange` function)**:
+    -   The core logic involves constructing a call to a Vault contract's `exchange` function.
+    -   **Payload Construction**: A payload containing order details (tokens, amounts, validity, nonce) is created.
+    -   **Signing**: This payload is signed by the solver's private key (`solver_key`). This signature authorizes the trade on the Vault contract.
+    -   **Calldata**: The `exchange` function call is encoded with the order details and the generated signature.
+
+4.  **Interaction Assembly**:
+    -   A `Custom` interaction is created targeting the `vault_address`.
+    -   This interaction includes:
+        -   `call_data`: The encoded `exchange` function call.
+        -   `allowances`: Grants the Vault permission to spend the `sellToken`.
+        -   `inputs` and `outputs`: Define the token flow for the settlement verification.
+
+### Code Snippet Reference
+
+The `create_solution` method demonstrates how the `exchange` calldata is built and signed:
+
+```rust
+// ... inside create_solution ...
+
+let payload = (
+    order_id,
+    Address::from_slice(exchange_token_in.0.0.as_bytes()),
+    alloyU256::from_limbs(exchange_amount_in.0),
+    Address::from_slice(exchange_token_out.0.0.as_bytes()),
+    alloyU256::from_limbs(exchange_amount_out.0),
+    u32::from(valid_to),
+    alloyU256::from(chain_id),
+    alloyU256::from(nonce),
+    Address::from(vault_address.0),
+    Address::from(self.settlement_contract.0),
+);
+
+// Sign the payload
+let signature = signer.sign_message(payload_abi_encode.as_slice()).await.unwrap();
+
+// Encode the transaction calldata
+let exchange_calldata = exchangeCall {
+    orderUid: order_id,
+    tokenIn: Address::from_slice(exchange_token_in.0.0.as_bytes()),
+    amountIn: alloyU256::from_limbs(exchange_amount_in.0),
+    tokenOut: Address::from_slice(exchange_token_out.0.0.as_bytes()),
+    amountOut: alloyU256::from_limbs(exchange_amount_out.0),
+    validTo: u32::from(valid_to),
+    nonce: alloyU256::from(nonce),
+    signatures: vec![signature.as_bytes().to_vec().into()],
+}.abi_encode();
+```
+
+This implementation highlights the specific off-chain logic required to prepare a transaction that the `driver-hyperliquid-template` (acting as a solver) will propose for on-chain execution.

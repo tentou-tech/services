@@ -20,7 +20,6 @@ mempool = "public"
 [liquidity]
 base-tokens = [
     "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # ETH
-    "0xc003d79b8a489703b1753711e3ae9ffdfc8d1a82", # PURR
 ]
 
 [[liquidity.uniswap-v2]] # Uniswap V2 configuration
