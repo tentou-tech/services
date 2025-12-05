@@ -94,8 +94,8 @@ impl HyperLiquidSolutionGenerator {
     async fn fake_prices(&self, auction: &Auction) -> Result<HashMap<TokenAddress, U256>> {
         let mut prices = HashMap::new();
         for order in auction.orders() {
-            prices.insert(order.sell.token, eth::U256::exp10(15));
-            prices.insert(order.buy.token, eth::U256::exp10(15));
+            prices.insert(order.sell.token, eth::U256::exp10(20));
+            prices.insert(order.buy.token, eth::U256::exp10(20));
         }
         Ok(prices)
     }
@@ -209,7 +209,6 @@ impl HyperLiquidSolutionGenerator {
         println!("Signer: {:?}", signer);
         println!("Signature (hex): {}", hex::encode_prefixed(signature.as_bytes()));
         
-        let mut buf = Vec::new();
         let exchange_calldata = exchangeCall{
             orderUid: order_id,
             tokenIn: Address::from_slice(exchange_token_in.0.0.as_bytes()),
@@ -219,17 +218,14 @@ impl HyperLiquidSolutionGenerator {
             validTo: u32::from(valid_to),
             nonce: alloyU256::from(nonce),
             signatures: vec![signature.as_bytes().to_vec().into()],
-        }.abi_encode_raw(&mut buf);
+        }.abi_encode();
 
-        println!("Exchange Calldata (hex): {}\n", hex::encode_prefixed(&buf));
-        
-
-        let encoded: Vec<u8> = buf;
+        println!("Exchange Calldata (hex): {}\n", hex::encode_prefixed(&exchange_calldata));
 
         let interaction = Interaction::Custom(solution::interaction::Custom {
             target: eth::ContractAddress(vault_address),
             value: eth::Ether(eth::U256::zero()),
-            call_data: util::Bytes(encoded),
+            call_data: util::Bytes(exchange_calldata),
             allowances: vec![eth::allowance::Required(eth::allowance::Allowance {
                 token: order.sell.token,
                 spender: eth::Address(vault_address),
@@ -257,7 +253,7 @@ impl HyperLiquidSolutionGenerator {
             vec![],
             self.solver.clone(),
             self.weth,
-            Some(eth::Gas(eth::U256::zero())),
+            Some(eth::Gas(eth::U256::from(250_000))),
             crate::infra::config::file::FeeHandler::Driver,
             &HashSet::new(),
             HashMap::new(),
