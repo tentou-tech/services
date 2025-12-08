@@ -36,6 +36,7 @@ use {
 pub mod dto;
 
 pub mod kyberswap;
+pub mod hyperliquid;
 
 // TODO At some point I should be checking that the names are unique, I don't
 // think I'm doing that.
@@ -142,6 +143,9 @@ pub struct Config {
     /// If enabled, driver generates solutions directly using KyberSwap routes
     /// without calling the solver engine.
     pub kyberswap_only: bool,
+    /// If enabled, driver generates solutions directly using HyperLiquid routes
+    /// without calling the solver engine.
+    pub hyperliquid_only: bool,
 }
 
 impl Solver {
@@ -237,6 +241,11 @@ impl Solver {
         self.config.kyberswap_only
     }
 
+    /// Whether this solver uses HyperLiquid-only mode (generates solutions directly).
+    pub fn is_hyperliquid_only(&self) -> bool {
+        self.config.hyperliquid_only
+    }
+
     /// Make a POST request instructing the solver to solve an auction.
     /// Allocates at most `timeout` time for the solving.
     #[instrument(name = "solver_engine", skip_all)]
@@ -280,6 +289,8 @@ impl Solver {
         }
 
         let url = shared::url::join(&self.config.endpoint, "solve");
+        // print url and body
+        tracing::debug!("url: {:?}, body: {:?}", url, body);    
         super::observe::solver_request(&url, &body);
         let timeout = match auction.deadline(self.timeouts()).solvers().remaining() {
             Ok(timeout) => timeout,
@@ -328,7 +339,11 @@ impl Solver {
         Ok(solutions)
     }
 
-    fn assemble_flashloan_hints(&self, auction: &Auction) -> HashMap<order::Uid, eth::Flashloan> {
+    pub fn client(&self) -> &reqwest::Client {
+        &self.client
+    }
+
+    pub fn assemble_flashloan_hints(&self, auction: &Auction) -> HashMap<order::Uid, eth::Flashloan> {
         if !self.config.flashloans_enabled {
             return Default::default();
         }

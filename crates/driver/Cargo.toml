@@ -41,7 +41,7 @@ num = { workspace = true }
 number = { workspace = true }
 prometheus = { workspace = true }
 prometheus-metric-storage = { workspace = true }
-rand = { workspace = true }
+rand = { workspace = true, features = ["std"] }
 reqwest = { workspace = true }
 s3 = { workspace = true }
 serde = { workspace = true }

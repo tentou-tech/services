@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = ["crates/driver-hyperliquid-template"]
 
 [workspace.dependencies]
 alloy = { version = "1.0.41", default-features = false }
