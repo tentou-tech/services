@@ -1,0 +1,24 @@
+tx-gas-limit = "45000000"
+disable-access-list-simulation = true
+
+[[solver]]
+name = "hypervault" # Arbitrary name given to this solver, must be unique
+endpoint = "http://localhost:9003"
+absolute-slippage = "40000000000000000" # Denominated in wei, optional
+relative-slippage = "0.1" # Percentage in the [0, 1] range
+account = "0x6f8381267819901534cf01edbb6763e816b38c57a34dda381c3a251de5a57c7d" # Known test private key
+hyperliquid-only = true
+
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+
+[liquidity]
+base-tokens = [
+    "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # ETH
+]
+
+[liquidity.hyperliquid]
+vault-address = "0x24be1e421e38a9ef728c5c36a69d724820ab58ed"

@@ -1,0 +1,7 @@
+chain-id = "998" # Ethereum mainnet
+base-tokens = [
+    "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # ETH
+]
+max-hops = 2
+max-partial-attempts = 5
+native-token-price-estimation-amount = "100000000000000000" # 0.1 ETH

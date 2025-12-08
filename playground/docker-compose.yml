@@ -55,9 +55,9 @@ services:
       - EIP1271_SKIP_CREATION_VALIDATION=true
       - ENABLE_EIP1271_ORDERS=true
       - PRICE_ESTIMATORS=None
-      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
-      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
-      - DRIVERS=baseline|http://driver/baseline
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline,hypervault|http://driver-hypervault/hypervault
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline,hypervault|http://driver-hypervault/hypervault
+      - DRIVERS=baseline|http://driver/baseline,hypervault|http://driver-hypervault/hypervault
       - BIND_ADDRESS=0.0.0.0:80
       - CHAIN_ID=${CHAIN_ID}
       - BASELINE_SOURCES=None
@@ -91,13 +91,13 @@ services:
       - SETTLE_INTERVAL=${SETTLE_INTERVAL:-15s}
       - GAS_ESTIMATORS=Native,Web3
       - PRICE_ESTIMATORS=None
-      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline,hypervault|http://driver-hypervault/hypervault
       - BLOCK_STREAM_POLL_INTERVAL=1s
       - NATIVE_PRICE_CACHE_MAX_UPDATE_SIZE=100
       - NATIVE_PRICE_CACHE_MAX_AGE=20m
       - SOLVER_TIME_LIMIT=${SOLVER_TIME_LIMIT:-5}
-      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
-      - DRIVERS=baseline|http://driver/baseline|${SOLVER_ACCOUNT}
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline,hypervault|http://driver-hypervault/hypervault
+      - DRIVERS=baseline|http://driver/baseline|${SOLVER_ACCOUNT},hypervault|http://driver-hypervault/hypervault|0x46d24c17d765e3a5f4828c87fa7b11e3f732dceb
       - SKIP_EVENT_SYNC=true
       - BASELINE_SOURCES=None
       - RUST_BACKTRACE=1
@@ -165,6 +165,57 @@ services:
     ports:
       - "9001:80"  # Solver API & metrics
 
+  # Driver service for hypervault
+  driver-hypervault:
+    build:
+      context: ../
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command:
+      [
+        "cargo",
+        "watch",
+        "-x",
+        "run --bin driver -- --config configs/hypervault/driver.toml",
+      ]
+    environment:
+      - ETHRPC=${ETH_RPC_URL}
+      - ADDR=0.0.0.0:80
+      - RUST_BACKTRACE=1
+      - TOML_TRACE_ERROR=1
+    volumes:
+      - ../:/src
+    ports:
+      - "9002:80"  # Driver API & metrics
+
+  # Baseline solver engine
+  hypervault:
+    build:
+      context: ../
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    env_file:
+      - .env
+    command:
+      [
+        "cargo",
+        "watch",
+        "-x",
+        "run --bin solvers -- baseline --config configs/hypervault/hypervault.toml",
+      ]
+    environment:
+      - ADDR=0.0.0.0:80
+      - LOG=solvers=trace,shared=trace
+      - RUST_BACKTRACE=1
+      - TOML_TRACE_ERROR=1
+    volumes:
+      - ../:/src
+    ports:
+      - "9003:80"  # Solver API & metrics
   # CoW Explorer - Direct connection to public RPC
   # explorer:
   #   build:
