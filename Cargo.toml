@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = ["crates/driver-hyperliquid-template"]
 
 [workspace.dependencies]
 alloy = { version = "1.0.41", default-features = false }
@@ -69,7 +70,6 @@ contracts = { path = "crates/contracts" }
 cow-amm = { path = "crates/cow-amm" }
 database = { path = "crates/database" }
 driver = { path = "crates/driver" }
-driver-hyperliquid-template = { path = "crates/driver-hyperliquid-template" }
 ethrpc = { path = "crates/ethrpc" }
 model = { path = "crates/model" }
 moka = "0.12.10"

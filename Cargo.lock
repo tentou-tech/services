@@ -2639,44 +2639,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "driver-hyperliquid-template"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "app-data",
- "axum",
- "chrono",
- "clap",
- "derive_more 1.0.0",
- "driver",
- "ethcontract",
- "futures",
- "hyper 0.14.29",
- "model",
- "num",
- "number",
- "observe",
- "rand 0.8.5",
- "reqwest 0.11.27",
- "secp256k1 0.27.0",
- "serde",
- "serde_json",
- "serde_with",
- "shared",
- "solvers-dto",
- "thiserror 1.0.61",
- "tokio",
- "tower 0.4.13",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "url",
- "vergen",
- "web3",
-]
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
