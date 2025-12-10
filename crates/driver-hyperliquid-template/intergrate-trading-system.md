@@ -155,9 +155,9 @@ sequenceDiagram
 ```
 
 ## HyperLiquid Solution Generator Implementation (`hyperliquid.rs`)
-The `HyperLiquidSolutionGenerator` struct in `@crates/driver/src/infra/solver/hyperliquid.rs` provides a concrete implementation of a solver strategy that interacts with the HyperLiquid ecosystem via a Vault contract.
+The `HyperLiquidSolutionGenerator` struct in `@crates/solvers-private-lp/src/solver.rs` provides a concrete implementation of a solver strategy that interacts with the HyperLiquid ecosystem via a Vault contract.
 
-### **Important Note on Implementation**: Any specific logic or changes related to the HyperLiquid solver *must* be implemented within the `HyperLiquidSolutionGenerator` struct in [`crates/driver/src/infra/solver/hyperliquid.rs`](../driver/src/infra/solver/hyperliquid.rs). This ensures that all HyperLiquid-specific functionalities are centralized and managed from their designated source.
+### **Important Note on Implementation**: Any specific logic or changes related to the HyperLiquid solver *must* be implemented within the `HyperLiquidSolutionGenerator` struct in [`crates/solvers-private-lp/src/solver.rs`](../solvers-private-lp/src/solver.rs). This ensures that all HyperLiquid-specific functionalities are centralized and managed from their designated source.
 
 ### Key Responsibilities
 
