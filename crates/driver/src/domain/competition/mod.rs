@@ -213,31 +213,35 @@ impl Competition {
                     return Err(Error::Solver(infra::solver::Error::Other("KyberSwap-only mode requires KyberSwap liquidity configuration".to_string())));
                 }
             }
-        } else if self.solver.is_hyperliquid_only() {
-             // Generate solutions directly using HyperLiquid routes
-            match &self.liquidity_config.hyperliquid {
-                Some(hyperliquid_config) => {
-                    let generator = infra::solver::hyperliquid::HyperLiquidSolutionGenerator::new(
-                        &self.eth,
-                        hyperliquid_config,
-                        self.solver.clone(),
-                    )
-                    .map_err(|err| {
-                        tracing::error!(?err, "Failed to create HyperLiquid solution generator");
-                        Error::Solver(infra::solver::Error::Other(err.to_string()))
-                    })?;
+        } 
+        // else if self.solver.is_hyperliquid_only() {
+        //      // Generate solutions directly using HyperLiquid routes
+        //     // match &self.liquidity_config.hyperliquid {
+        //     //     Some(hyperliquid_config) => {
+        //     //         let generator = infra::solver::hyperliquid::HyperLiquidSolutionGenerator::new(
+        //     //             &self.eth,
+        //     //             hyperliquid_config,
+        //     //             self.solver.clone(),
+        //     //         )
+        //     //         .map_err(|err| {
+        //     //             tracing::error!(?err, "Failed to create HyperLiquid solution generator");
+        //     //             Error::Solver(infra::solver::Error::Other(err.to_string()))
+        //     //         })?;
                     
-                    generator.solve(auction).await.map_err(|err| {
-                        tracing::error!(?err, "HyperLiquid solution generation failed");
-                        Error::Solver(infra::solver::Error::Other(err.to_string()))
-                    })?
-                }
-                None => {
-                    tracing::error!("HyperLiquid-only mode enabled but no HyperLiquid config found");
-                    return Err(Error::Solver(infra::solver::Error::Other("HyperLiquid-only mode requires HyperLiquid liquidity configuration".to_string())));
-                }
-            }
-        } else {
+        //     //         generator.solve(auction).await.map_err(|err| {
+        //     //             tracing::error!(?err, "HyperLiquid solution generation failed");
+        //     //             Error::Solver(infra::solver::Error::Other(err.to_string()))
+        //     //         })?
+        //     //     }
+        //     //     None => {
+        //     //         tracing::error!("HyperLiquid-only mode enabled but no HyperLiquid config found");
+        //     //         return Err(Error::Solver(infra::solver::Error::Other("HyperLiquid-only mode requires HyperLiquid liquidity configuration".to_string())));
+        //     //     }
+        //     // }
+        //     tracing::warn!("HyperLiquid-only mode is temporarily disabled (code moved to new crate)");
+        //     return Ok(None);
+        // } 
+        else {
             // Fetch the solutions from the solver engine.
             self.solver
                 .solve(auction, &liquidity)

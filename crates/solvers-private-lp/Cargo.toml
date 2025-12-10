@@ -1,0 +1,23 @@
+[package]
+name = "solvers-private-lp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solvers-dto = { workspace = true }
+axum = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["full"] }
+toml = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+reqwest = { workspace = true, features = ["json"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+alloy = { workspace = true, features = ["sol-types", "signer-local"] }
+web3 = { workspace = true }
+hex = "0.4"
+clap = { workspace = true, features = ["derive", "env"] }
+ethcontract = { workspace = true }
+const-hex = { workspace = true }
