@@ -153,11 +153,6 @@ impl Competition {
         let (auction, mut balances, app_data) =
             tokio::join!(sort_orders_future, tasks.balances, tasks.app_data);
 
-        // For HyperLiquid-only mode, create fake balances to prevent order filtering
-        if self.solver.is_hyperliquid_only() {
-            balances = Arc::new(self.create_fake_balances(&auction, &balances));
-        }
-
         let auction = Self::run_blocking_with_timer("update_orders", move || {
             // Same as before with sort_orders, we use spawn_blocking() because a lot of CPU
             // bound computations are happening and we want to avoid blocking
@@ -818,37 +813,6 @@ impl Competition {
         self.bad_tokens
             .filter_unsupported_orders_in_auction(auction)
             .await
-    }
-
-    /// Creates fake balances for HyperLiquid-only mode to ensure orders are not
-    /// filtered out due to insufficient balance. Each order receives a balance
-    /// equal to or greater than its maximum sell amount.
-    fn create_fake_balances(&self, auction: &Auction, existing_balances: &Balances) -> Balances {
-        let mut balances = existing_balances.clone();
-
-        // For each order in the auction, ensure there's a sufficient balance
-        for order in &auction.orders {
-            let balance_key = (
-                order.trader(),
-                order.sell.token,
-                order.sell_token_balance,
-            );
-
-            let max_sell = order::SellAmount(order.available().sell.amount.0);
-
-            // Insert or update the balance to ensure it's sufficient
-            balances
-                .entry(balance_key)
-                .and_modify(|balance| {
-                    // Ensure balance is at least equal to max_sell
-                    if *balance < max_sell {
-                        *balance = max_sell;
-                    }
-                })
-                .or_insert(max_sell);
-        }
-
-        balances
     }
 }
 
