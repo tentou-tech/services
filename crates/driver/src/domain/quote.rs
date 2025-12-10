@@ -128,70 +128,7 @@ impl Order {
                     return Err(Error::Solver(infra::solver::Error::Other("KyberSwap-only mode requires KyberSwap liquidity configuration".to_string())));
                 }
             }
-        } 
-        // else if solver.is_hyperliquid_only() {
-        //     // match &liquidity_config.hyperliquid {
-        //     //     Some(hyperliquid_config) => {
-        //     //         tracing::info!("Hyperliquid mode enabled for quote");
-        //     //         // Generate quote using Hyperliquid solver
-        //     //     let hyperliquid_solver = infra::solver::hyperliquid::HyperLiquidSolutionGenerator::new(
-        //     //         eth,
-        //     //         hyperliquid_config,
-        //     //         solver.clone(),
-        //     //     ).map_err(|err| {
-        //     //         tracing::error!(?err, "Failed to create Hyperliquid solution generator for quote");
-        //     //         Error::Solver(infra::solver::Error::Other(err.to_string()))
-        //     //     })?;
-
-        //     //     // Create a fake auction with the order
-        //     //     let auction = self
-        //     //         .fake_auction(eth, tokens, solver.quote_using_limit_orders())
-        //     //         .await?;
-        //     //     // Generate solutions using Hyperliquid
-        //     //     let solutions = hyperliquid_solver.solve(&auction).await.map_err(|err| {
-        //     //         tracing::error!(?err, "Hyperliquid quote generation failed");
-        //     //         Error::Solver(infra::solver::Error::Other(err.to_string()))
-        //     //     })?;
-
-        //     //     Quote::try_new(
-        //     //         eth,
-        //     //         solutions
-        //     //             .into_iter()
-        //     //             .find(|solution| !solution.is_empty(auction.surplus_capturing_jit_order_owners()))
-        //     //             .ok_or(QuotingFailed::NoSolutions)?,
-        //     //     )
-        //     //     }
-        //     //     None => {
-        //     //         tracing::error!("HyperLiquid-only mode enabled but no HyperLiquid config found for quote");
-        //     //         return Err(Error::Solver(infra::solver::Error::Other("HyperLiquid-only mode requires HyperLiquid liquidity configuration".to_string())));
-        //     //     }
-        //     // }
-        //     let liquidity = match solver.liquidity() {
-        //         solver::Liquidity::Fetch => {
-        //             liquidity
-        //                 .fetch(&self.liquidity_pairs(), infra::liquidity::AtBlock::Recent)
-        //                 .await
-        //         }
-        //         solver::Liquidity::Skip => Default::default(),
-        //     };
-
-        //     let auction = self
-        //         .fake_auction(eth, tokens, solver.quote_using_limit_orders())
-        //         .await?;
-        //     let solutions = solver.solve(&auction, &liquidity).await?;
-        //     Quote::try_new(
-        //         eth,
-        //         // TODO(#1468): choose the best solution in the future, but for now just pick the
-        //         // first solution
-        //         solutions
-        //             .into_iter()
-        //             .find(|solution| !solution.is_empty(auction.surplus_capturing_jit_order_owners()))
-        //             .ok_or(QuotingFailed::NoSolutions)?,
-        //     )
-        //     // tracing::warn!("HyperLiquid-only mode is temporarily disabled (code moved to new crate)");
-        //     // return Err(Error::Solver(infra::solver::Error::Other("HyperLiquid-only mode is disabled".to_string())));
-        // } 
-        else {
+        } else {
             // Normal flow: fetch liquidity and call solver engine
             let liquidity = match solver.liquidity() {
                 solver::Liquidity::Fetch => {

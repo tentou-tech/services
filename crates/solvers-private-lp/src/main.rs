@@ -122,6 +122,8 @@ async fn solve_auction(
     match state.solver.solve(auction).await {
         Ok(solutions) => {
             let response = Solutions { solutions };
+            let json = serde_json::to_string(&response).unwrap_or_default();
+            tracing::info!("Sending response: {}", json);
             (StatusCode::OK, Json(response)).into_response()
         },
         Err(err) => {

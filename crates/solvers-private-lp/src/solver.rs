@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use solvers_dto::{
-    auction::{Auction, Order, Kind},
+    auction::{Auction, Order, Kind, Class},
     solution::{
         Solution, Trade, Fulfillment, Interaction, CustomInteraction, 
         Asset, Allowance, OrderUid,
@@ -67,9 +67,11 @@ impl HyperLiquidSolver {
         Ok(solutions)
     }
 
-    async fn create_solution(&self, _auction: &Auction, order: &Order, solution_id: u64) -> Result<Solution> {
+    async fn create_solution(&self, auction: &Auction, order: &Order, solution_id: u64) -> Result<Solution> {
+        tracing::info!(?order, "Processing order");
+
         // Mock prices for now
-        let prices = self.fake_prices(_auction).await?;
+        let prices = self.fake_prices(auction).await?;
         
         let (token_in, amount_in, token_out, amount_out) = match order.kind {
             Kind::Sell => {
@@ -155,11 +157,23 @@ impl HyperLiquidSolver {
             }],
         });
         
+        // If auction ID is None (e.g. quote/estimate), use None fee (Static).
+        // Otherwise, use logic based on order class.
+        let fee = if auction.id.is_none() {
+            None
+        } else {
+            match order.class {
+                Class::Market => Some(U256::zero()),
+                Class::Limit => Some(U256::zero()), // <--- Changed this line
+            }
+        };
+
         let fulfillment = Fulfillment {
             order: OrderUid(order.uid),
             executed_amount: amount_in,
-            fee: None,
+            fee,
         };
+        tracing::info!(?fulfillment, "Created fulfillment with amount_in: {}", amount_in);
 
         let trades = vec![Trade::Fulfillment(fulfillment)];
 

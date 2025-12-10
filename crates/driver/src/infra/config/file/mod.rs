@@ -299,12 +299,6 @@ struct SolverConfig {
     /// without calling the solver engine. Requires KyberSwap liquidity config.
     #[serde(default)]
     kyberswap_only: bool,
-
-    /// If enabled, driver generates solutions directly using HyperLiquid
-    /// routes without calling the solver engine. Requires HyperLiquid
-    /// liquidity config.
-    #[serde(default)]
-    hyperliquid_only: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -471,9 +465,6 @@ struct LiquidityConfig {
     /// Liquidity provided by KyberSwap Aggregator API.
     #[serde(default)]
     kyberswap: Option<KyberSwapConfig>,
-
-    #[serde(default)]
-    hyperliquid: Option<HyperLiquidConfig>,
 
     /// Defines at which block the liquidity needs to be fetched on /solve
     /// requests.
@@ -1006,10 +997,4 @@ enum AtBlock {
     Latest,
     /// Use the latest finalized block.
     Finalized,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct HyperLiquidConfig {
-    pub vault_address: eth::H160,
 }

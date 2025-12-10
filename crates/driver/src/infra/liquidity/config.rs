@@ -46,9 +46,6 @@ pub struct Config {
 
     /// KyberSwap Aggregator liquidity fetcher.
     pub kyberswap: Option<KyberSwap>,
-
-    /// HyperLiquid liquidity fetcher.
-    pub hyperliquid: Option<HyperLiquid>,
 }
 
 /// Uniswap V2 (and Uniswap V2 clone) liquidity fetching options.
@@ -327,10 +324,4 @@ pub struct KyberSwap {
     pub cache_ttl: Duration,
     /// Client ID for KyberSwap API
     pub client_id: String,
-}
-
-/// HyperLiquid liquidity fetching options.
-#[derive(Clone, Debug)]
-pub struct HyperLiquid {
-    pub vault_address: eth::ContractAddress,
 }

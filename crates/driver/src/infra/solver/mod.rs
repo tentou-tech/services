@@ -36,7 +36,6 @@ use {
 pub mod dto;
 
 pub mod kyberswap;
-pub mod hyperliquid;
 
 // TODO At some point I should be checking that the names are unique, I don't
 // think I'm doing that.
@@ -143,9 +142,6 @@ pub struct Config {
     /// If enabled, driver generates solutions directly using KyberSwap routes
     /// without calling the solver engine.
     pub kyberswap_only: bool,
-    /// If enabled, driver generates solutions directly using HyperLiquid routes
-    /// without calling the solver engine.
-    pub hyperliquid_only: bool,
 }
 
 impl Solver {
@@ -239,11 +235,6 @@ impl Solver {
     /// Whether this solver uses KyberSwap-only mode (generates solutions directly).
     pub fn is_kyberswap_only(&self) -> bool {
         self.config.kyberswap_only
-    }
-
-    /// Whether this solver uses HyperLiquid-only mode (generates solutions directly).
-    pub fn is_hyperliquid_only(&self) -> bool {
-        self.config.hyperliquid_only
     }
 
     /// Make a POST request instructing the solver to solve an auction.
