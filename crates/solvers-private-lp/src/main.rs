@@ -17,7 +17,7 @@ mod solver;
 use api::DefaultHyperLiquidApi;
 use config::{Config, FileConfig};
 use solver::{HyperLiquidSolver, SolverConfig};
-use solvers_dto::{auction::Auction, solution::Solutions};
+use solvers_dto::{auction::Auction, solution::Solutions, notification::Notification};
 
 struct AppState {
     solver: HyperLiquidSolver,
@@ -92,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/solve", post(solve_auction))
+        .route("/notify", post(notify))
         .route("/healthz", get(healthz))
         .with_state(app_state);
 
@@ -134,5 +135,13 @@ async fn solve_auction(
 }
 
 async fn healthz() -> impl IntoResponse {
+    StatusCode::OK
+}
+
+async fn notify(
+    State(_state): State<Arc<AppState>>,
+    Json(notification): Json<Notification>,
+) -> impl IntoResponse {
+    tracing::info!("Received notification: {:?}", notification);
     StatusCode::OK
 }
