@@ -2,6 +2,17 @@
 
 This crate serves as a foundational template for building custom CoW Protocol solvers that leverage private liquidity sources. It's designed to provide a clear starting point for developers looking to integrate their own trading strategies and external liquidity providers with the CoW Protocol ecosystem.
 
+## Table of Contents
+
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+- [Getting Started: Building Your Own Solver](#getting-started-building-your-own-solver)
+- [Project Structure Overview](#project-structure-overview)
+- [Building and Running Locally](#building-and-running-locally)
+- [Integration with CoW Protocol Driver](#integration-with-cow-protocol-driver)
+- [Testing](#testing)
+- [Next Steps for Customization](#next-steps-for-customization)
+
 ## Key Features
 
 *   **CoW Protocol Driver Integration:** Seamlessly integrates with the CoW Protocol driver framework, allowing your solver to receive auction data and submit solutions.
@@ -9,9 +20,33 @@ This crate serves as a foundational template for building custom CoW Protocol so
 *   **Web Server:** Runs as a web server, exposing a `/solve` endpoint to receive auction requests from the CoW Protocol driver.
 *   **`solvers-dto` Usage:** Utilizes the `solvers-dto` crate for standardized data transfer objects, ensuring compatibility with the broader CoW Protocol architecture.
 
+## Architecture
+
+The solver operates as a web service that responds to auction requests from the CoW Protocol Driver. The high-level data flow is as follows:
+
+1.  **Auction Ingestion (`main.rs`)**:
+    *   The service exposes a standard HTTP endpoint (`/solve`).
+    *   When the Driver sends a `BatchAuction` JSON payload, the `main` module deserializes it and passes it to the solver instance.
+
+2.  **Solver Logic (`solver.rs`)**:
+    *   The `HyperLiquidSolver::solve` method is the core orchestrator.
+    *   It analyzes the auction to identify relevant orders.
+    *   It queries external market data or liquidity availability via the `HyperLiquidApi`.
+    *   Based on the orders and external liquidity, it computes an optimal settlement (matching orders to your private liquidity).
+
+3.  **External Liquidity Integration (`api.rs`)**:
+    *   This module acts as an adapter. It transforms internal requests for price or quantity into specific API calls required by your private liquidity source (e.g., a CEX API, a market maker bot, or an on-chain pool).
+
+4.  **Solution Generation**:
+    *   If a profitable match is found, the solver constructs a `Solution`.
+    *   This solution includes the matched orders and a "calldata" interaction. This interaction defines how the settlement contract should swap tokens with your liquidity source on-chain.
+
+
 ## Getting Started: Building Your Own Solver
 
 To create your own solver based on this template, follow these steps:
+
+*   For a concrete example of a solver built using this template, see the [Hypervault Solver Flow](HYPERVAULT_FLOW.md) documentation.
 
 1.  **Clone the Repository:** If you haven't already, clone the main CoW Protocol Services repository.
 
