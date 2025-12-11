@@ -279,9 +279,7 @@ impl Solver {
             );
         }
 
-        let url = shared::url::join(&self.config.endpoint, "solve");
-        // print url and body
-        tracing::debug!("url: {:?}, body: {:?}", url, body);    
+        let url = shared::url::join(&self.config.endpoint, "solve"); 
         super::observe::solver_request(&url, &body);
         let timeout = match auction.deadline(self.timeouts()).solvers().remaining() {
             Ok(timeout) => timeout,
@@ -330,11 +328,7 @@ impl Solver {
         Ok(solutions)
     }
 
-    pub fn client(&self) -> &reqwest::Client {
-        &self.client
-    }
-
-    pub fn assemble_flashloan_hints(&self, auction: &Auction) -> HashMap<order::Uid, eth::Flashloan> {
+    fn assemble_flashloan_hints(&self, auction: &Auction) -> HashMap<order::Uid, eth::Flashloan> {
         if !self.config.flashloans_enabled {
             return Default::default();
         }

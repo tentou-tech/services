@@ -1,8 +1,8 @@
-name: 'tentou deploy'
+name: "tentou deploy"
 
 on:
   push:
-    branches: ['hyper-evm']
+    branches: [ "hyper-evm" ]
 
 jobs:
   build:
@@ -53,7 +53,7 @@ jobs:
         run: |
           git clone https://${{ secrets.REGISTRY_PASSWORD }}@github.com/tentou-tech/gitops.git
           cd gitops/clusters/k8s-main/nyne/cow-protocol
-
+          
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
           ./kustomize edit set image image_migrations=$MIGRATIONS_IMAGE:${{ env.IMAGE_TAG }}
           ./kustomize edit set image image_orderbook=$ORDERBOOK_IMAGE:${{ env.IMAGE_TAG }}
@@ -61,9 +61,11 @@ jobs:
           ./kustomize edit set image image_driver=$DRIVER_IMAGE:${{ env.IMAGE_TAG }}
           ./kustomize edit set image image_baseline=$BASELINE_IMAGE:${{ env.IMAGE_TAG }}
           rm kustomize
-
+          
           git config user.name "ci-bot"
           git config user.email "ci@bot"
           git commit -am "Update images to ${GITHUB_SHA::8}"
 
           git push
+
+

@@ -5,4 +5,3 @@
 /.idea
 **/testing.*.toml
 /playground/.env
-node_modules

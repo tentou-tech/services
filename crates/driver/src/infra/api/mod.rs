@@ -24,7 +24,7 @@ use {
     tokio::sync::oneshot,
 };
 
-pub mod error;
+mod error;
 pub mod routes;
 
 const REQUEST_BODY_LIMIT: usize = 10 * 1024 * 1024;

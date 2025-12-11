@@ -36,7 +36,7 @@ pub struct Quote {
 }
 
 impl Quote {
-    pub fn try_new(eth: &Ethereum, solution: competition::Solution) -> Result<Self, Error> {
+    fn try_new(eth: &Ethereum, solution: competition::Solution) -> Result<Self, Error> {
         Ok(Self {
             clearing_prices: solution
                 .clearing_prices()
@@ -155,7 +155,7 @@ impl Order {
         }
     }
 
-    pub async fn fake_auction(
+    async fn fake_auction(
         &self,
         eth: &Ethereum,
         tokens: &infra::tokens::Fetcher,
