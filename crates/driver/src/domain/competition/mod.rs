@@ -150,7 +150,7 @@ impl Competition {
         });
 
         // We can sort the orders and fetch auction data in parallel
-        let (auction, mut balances, app_data) =
+        let (auction, balances, app_data) =
             tokio::join!(sort_orders_future, tasks.balances, tasks.app_data);
 
         let auction = Self::run_blocking_with_timer("update_orders", move || {

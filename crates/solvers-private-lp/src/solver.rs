@@ -1,9 +1,8 @@
 use crate::api::HyperLiquidApi;
-use crate::config::Config;
 use anyhow::{Context, Result};
 use alloy::{
     sol,
-    primitives::{Address, U256 as AlloyU256, FixedBytes, hex, keccak256},
+    primitives::{Address, U256 as AlloyU256, keccak256},
     sol_types::{SolValue, SolCall},
     signers::{local::PrivateKeySigner, Signer},
 };
@@ -72,7 +71,6 @@ impl HyperLiquidSolver {
 
         // Mock prices for now
         let prices = self.fake_prices(auction).await?;
-        
         let (token_in, amount_in, token_out, amount_out) = match order.kind {
             Kind::Sell => {
                 let token_in = order.sell_token;

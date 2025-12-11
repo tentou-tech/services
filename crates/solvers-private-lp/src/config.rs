@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::str::FromStr;
 use serde::Deserialize;
 use web3::types::H160;
 
