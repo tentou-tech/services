@@ -25,7 +25,7 @@ Hypervault is a system composed of two main components:
     *   **Role**: Solver / Private Liquidity Provider
     *   **Configuration**: Defined in `configs/hypervault/hypervault.toml`.
 
-2.  **Contract Vault**: This is a smart contract deployed on-chain that holds and manages the liquidity for Hypervault. It must implement the `IVault.sol` interface, typically found at `https://github.com/tentou-tech/evm-core-vault/blob/main/contracts/IVault.sol`.
+2.  **Contract Vault**: This is a smart contract deployed on-chain that holds and manages the liquidity for Hypervault. It must implement the `IVault.sol` interface, typically found at https://github.com/tentou-tech/evm-core-vault/blob/main/contracts/IVault.sol.
     *   **Key Function**: The primary function of interest is `function exchange(bytes32 orderUid, address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut, uint32 validTo, uint256 nonce, bytes[] calldata signatures) external payable;`.
     *   **Purpose**: This function enables the transfer of tokens from the vault to the user and from the user to the vault, facilitating atomic swaps within the CoW Protocol settlement process.
     *   **Requirement**: The `vault-contract-address` specified in the configuration must point to this smart contract, and Hypervault must have the necessary permissions (e.g., allowances or ownership) to manage the liquidity held within it.
