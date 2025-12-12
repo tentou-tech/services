@@ -1,6 +1,6 @@
-# `solvers-private-lp` - CoW Protocol Solver Template
+# `solvers-private-lp` - Nyne Protocol Solver Template
 
-This crate serves as a foundational template for building custom CoW Protocol solvers that leverage private liquidity sources. It's designed to provide a clear starting point for developers looking to integrate their own trading strategies and external liquidity providers with the CoW Protocol ecosystem.
+This crate serves as a foundational template for building custom Nyne Protocol solvers that leverage private liquidity sources. It's designed to provide a clear starting point for developers looking to integrate their own trading strategies and external liquidity providers with the Nyne Protocol ecosystem.
 
 ## Table of Contents
 
@@ -9,20 +9,20 @@ This crate serves as a foundational template for building custom CoW Protocol so
 - [Getting Started: Building Your Own Solver](#getting-started-building-your-own-solver)
 - [Project Structure Overview](#project-structure-overview)
 - [Building and Running Locally](#building-and-running-locally)
-- [Integration with CoW Protocol Driver](#integration-with-cow-protocol-driver)
+- [Integration with Nyne Protocol Driver](#integration-with-nyne-protocol-driver)
 - [Testing](#testing)
 - [Next Steps for Customization](#next-steps-for-customization)
 
 ## Key Features
 
-*   **CoW Protocol Driver Integration:** Seamlessly integrates with the CoW Protocol driver framework, allowing your solver to receive auction data and submit solutions.
+*   **Nyne Protocol Driver Integration:** Seamlessly integrates with the Nyne Protocol driver framework, allowing your solver to receive auction data and submit solutions.
 *   **Private Liquidity Placeholder:** Includes an abstract interface (`api.rs`) and mock pricing (`fake_prices` in `solver.rs`) to guide the integration of your specific private liquidity source.
-*   **Web Server:** Runs as a web server, exposing a `/solve` endpoint to receive auction requests from the CoW Protocol driver.
-*   **`solvers-dto` Usage:** Utilizes the `solvers-dto` crate for standardized data transfer objects, ensuring compatibility with the broader CoW Protocol architecture.
+*   **Web Server:** Runs as a web server, exposing a `/solve` endpoint to receive auction requests from the Nyne Protocol driver.
+*   **`solvers-dto` Usage:** Utilizes the `solvers-dto` crate for standardized data transfer objects, ensuring compatibility with the broader Nyne Protocol architecture.
 
 ## Architecture
 
-The solver operates as a web service that responds to auction requests from the CoW Protocol Driver. The high-level data flow is as follows:
+The solver operates as a web service that responds to auction requests from the Nyne Protocol Driver. The high-level data flow is as follows:
 
 1.  **Auction Ingestion (`main.rs`)**:
     *   The service exposes a standard HTTP endpoint (`/solve`).
@@ -48,7 +48,7 @@ To create your own solver based on this template, follow these steps:
 
 *   For a concrete example of a solver built using this template, see the [Hypervault Solver Flow](HYPERVAULT_FLOW.md) documentation.
 
-1.  **Clone the Repository:** If you haven't already, clone the main CoW Protocol Services repository.
+1.  **Clone the Repository:** If you haven't already, clone the main Nyne Protocol Services repository.
 
     ```bash
     git clone https://github.com/cowprotocol/services.git
@@ -108,9 +108,9 @@ cargo run --release -p your-new-solver -- --config crates/your-new-solver/config
 
 Refer to the main `GEMINI.md` or `Justfile` in the root of the repository for general project build and test commands.
 
-## Integration with CoW Protocol Driver
+## Integration with Nyne Protocol Driver
 
-Your solver will run as an independent service. The CoW Protocol `driver` will send auction requests to your solver's `/solve` endpoint. Your solver must respond with a `Solution` object (defined in `solvers-dto`) that the driver can then interpret and execute on-chain.
+Your solver will run as an independent service. The Nyne Protocol `driver` will send auction requests to your solver's `/solve` endpoint. Your solver must respond with a `Solution` object (defined in `solvers-dto`) that the driver can then interpret and execute on-chain.
 
 ## Testing
 
