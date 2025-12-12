@@ -179,17 +179,17 @@ services:
         "cargo",
         "watch",
         "-x",
-        "run --bin solvers-private-lp -- --config configs/hypervault/hypervault.toml",
+        "run --bin solvers-private-lp -- --config configs/${ENV:-local}/hypervault.toml",
       ]
     environment:
-      - ADDR=0.0.0.0:9003
+      - ADDR=0.0.0.0:80
       - LOG=solvers=trace,shared=trace
       - RUST_BACKTRACE=1
       - TOML_TRACE_ERROR=1
     volumes:
       - ../:/src
     ports:
-      - "9003:9003"  # Solver API & metrics
+      - "9003:80"  # Solver API & metrics
   # CoW Explorer - Direct connection to public RPC
   # explorer:
   #   build:

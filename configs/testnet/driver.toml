@@ -1,0 +1,49 @@
+tx-gas-limit = "45000000"
+disable-access-list-simulation = true
+
+[[solver]]
+name = "baseline" # Arbitrary name given to this solver, must be unique
+endpoint = "http://baseline"
+absolute-slippage = "40000000000000000" # Denominated in wei, optional
+relative-slippage = "0.1" # Percentage in the [0, 1] range
+account = "" # solver 3 private key
+kyberswap-only = false
+
+[[solver]]
+name = "hypervault" # Arbitrary name given to this solver, must be unique
+endpoint = "http://hypervault"
+absolute-slippage = "40000000000000000" # Denominated in wei, optional
+relative-slippage = "0.1" # Percentage in the [0, 1] range
+account = "" # Known test private key
+
+[submission]
+gas-price-cap = "1000000000000"
+
+[[submission.mempool]]
+mempool = "public"
+
+[liquidity]
+base-tokens = [
+    "0xADcb2f358Eae6492F61A5F87eb8893d09391d160", # WETH
+]
+
+[[liquidity.uniswap-v2]] # Custom Uniswap V2 configuration
+router = "0x6Ca2d020285a991930Db9336685F36530Dd62F90"
+pool-code = "0x89e28f0672d230e32003ce2233112a4f044ab0238d476078999b58524fa386db"
+missing-pool-cache-time = "1h"
+
+# [liquidity.kyberswap] # KyberSwap Aggregator configuration
+# api-url = "https://aggregator-api.kyberswap.com"
+# chain-name = "hyperevm" # Hyper EVM chain name
+# meta-aggregator-router = "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5"  # MetaAggregation Router v2
+# http-timeout = "10s"
+# slippage-bps = 50
+# cache-ttl = "15s"
+# client-id = "tentou-protocol"
+
+# [[liquidity.uniswap-v3]] # Uniswap V3 configuration
+# router = "0xD81F56576B1FF2f3Ef18e9Cc71Adaa42516fD990"
+# max-pools-to-initialize = 100 # how many of the deepest pools to initialise on startup
+# max-pools-per-tick-query = 9223372036854775807
+# graph-url = "https://api.goldsky.com/api/public/project_cm97l77ib0cz601wlgi9wb0ec/subgraphs/v3-subgraph/6.0.0/gn" # which subgraph url to fetch the data from
+# reinit-interval = "12h"

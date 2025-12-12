@@ -1,4 +1,4 @@
 chain-id = 998
 settlement-contract-address = "0xDc746A7FF2DaAf182DA82560318F6c1b36d067b1"
 vault-contract-address = "0x24be1e421e38a9ef728c5c36a69d724820ab58ed"
-account = ""
+account = "" # signature of account that has permission to call the vault contract

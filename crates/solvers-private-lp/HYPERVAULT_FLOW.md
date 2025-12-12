@@ -99,27 +99,31 @@ There are two primary ways to run Hypervault locally:
 
 ### 1. With Docker Compose (Recommended)
 
-This method utilizes the project's `playground/` Docker Compose setup for a fully integrated environment.
+This method utilizes the project's `playground/` Docker Compose setup for a fully integrated with hyper evm testnet environment.
 
 1.  **Navigate to playground:**
     ```bash
     cd playground
     ```
-2.  **Start Hypervault:**
-    ```bash
-    docker compose -f docker-compose.fork.yml up --build hypervault
+2. **Setup env file**
     ```
-    *(Use `docker-compose.fork.yml` for mainnet forking, `docker-compose.yml` for a simpler local network.)*
+    cp .env.example .env
+    ```
+3.  **Start Hypervault:**
+    ```bash
+    docker compose -f docker-compose.yml up --build hypervault
+    ```
+    *(Use `docker-compose.yml` for testnet, `docker-compose.yml` for a simpler local service.)*
 3.  **Verify:** Check logs for confirmation: `docker compose logs hypervault`.
 
 ### 2. Without Docker (`cargo run`)
 
 This method runs Hypervault directly, requiring a local Ethereum node and manual configuration.
 
-1.  **Create Config:** Copy `crates/solvers-private-lp/example_config.toml` to `configs/hypervault/local_hypervault.toml` and modify as needed.
+1.  **Create Config:** Copy `crates/solvers-private-lp/example_config.toml` to `configs/testnet/local_hypervault.toml` and modify as needed.
 2.  **Run Solver:** From the `services` root directory:
     ```bash
-    ADDR=127.0.0.1:9001 cargo run --bin solvers-private-lp -- --config configs/hypervault/local_hypervault.toml
+    ADDR=127.0.0.1:9001 cargo run --bin solvers-private-lp -- --config configs/testnet/local_hypervault.toml
     ```
     *(Adjust `ADDR` if your Driver expects a different endpoint.)*
 3.  **Verify:** Check console output for confirmation.
